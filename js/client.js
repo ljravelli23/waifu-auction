@@ -30,8 +30,11 @@ class WaifuAuctionClient {
                 
                 if (this.isHost) {
                     console.log('Host initialized with room code:', code);
+                    console.log('hostView exists:', !!this.hostView);
                     if (this.hostView) {
                         this.hostView.onHostJoined({ success: true, roomCode: code });
+                    } else {
+                        console.error('hostView is not defined!');
                     }
                 }
             }, 100);

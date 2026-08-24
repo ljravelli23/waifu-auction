@@ -861,7 +861,7 @@ class HostView {
 
 // Initialize host view when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    new HostView(client);
+    client.hostView = new HostView(client);
 });
 
 

@@ -268,5 +268,5 @@ class PlayerView {
 
 // Initialize player view when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    new PlayerView(client);
+    client.playerView = new PlayerView(client);
 });
