@@ -296,9 +296,10 @@ class HostView {
     }
 
     onHostJoined(data) {
-        console.log('Host joined event received:', data);
+        console.log('onHostJoined called with:', data);
         if (data.success && data.roomCode) {
             const display = document.getElementById('room-code-display');
+            console.log('Display element:', display);
             if (display) {
                 display.textContent = data.roomCode;
                 console.log('Room code displayed:', data.roomCode);
