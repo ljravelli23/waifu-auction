@@ -13,8 +13,12 @@ class HostView {
         document.getElementById('btn-host').addEventListener('click', () => {
             this.client.isHost = true;
             this.client.connect();
-            this.client.socket.emit('host:join');
             this.client.showScreen('host-setup');
+            
+            // Wait for connection before emitting
+            this.client.socket.on('connect', () => {
+                this.client.socket.emit('host:join');
+            });
         });
 
         // Configuration updates
