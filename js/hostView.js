@@ -15,10 +15,17 @@ class HostView {
             this.client.connect();
             this.client.showScreen('host-setup');
             
-            // Wait for connection before emitting
-            this.client.socket.on('connect', () => {
-                this.client.socket.emit('host:join');
-            });
+            // Emit host:join after a short delay to ensure connection
+            setTimeout(() => {
+                if (this.client.socket && this.client.socket.connected) {
+                    this.client.socket.emit('host:join');
+                } else {
+                    // If not connected yet, wait for connect event
+                    this.client.socket.once('connect', () => {
+                        this.client.socket.emit('host:join');
+                    });
+                }
+            }, 100);
         });
 
         // Configuration updates
