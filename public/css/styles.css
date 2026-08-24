@@ -48,7 +48,61 @@ h2 {
 h3 {
     color: #667eea;
     margin-bottom: 15px;
-    font-size: 1.3em;
+}
+
+/* Blind mode styles */
+.blind-mode-item {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border: 2px solid #f5576c;
+}
+
+.blind-placeholder {
+    font-size: 3em;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.blind-placeholder-small {
+    font-size: 2em;
+    text-align: center;
+}
+
+.blind-mode-text {
+    color: #fff;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+.pool-item-name {
+    font-size: 0.9em;
+    color: #333;
+    margin: 5px 0;
+}
+
+/* Genre checkboxes */
+.genre-checkboxes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.genre-checkboxes label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+.genre-checkboxes input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.filters-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
 }
 
 p {

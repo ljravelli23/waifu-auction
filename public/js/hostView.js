@@ -149,12 +149,12 @@ class HostView {
         console.log('Generated', characters.length, 'random characters');
         characters.forEach(char => {
             const item = document.createElement('div');
-            item.className = 'search-item';
+            item.className = 'search-item blind-mode-item';
             item.innerHTML = `
-                <img src="${char.imageUrl}" alt="${char.characterName}">
+                <div class="blind-placeholder">🎭</div>
                 <div class="search-item-info">
-                    <h4>${char.characterName}</h4>
-                    <p>${char.animeName}</p>
+                    <h4>${char.animeName}</h4>
+                    <p class="blind-mode-text">Personaje oculto (se revelará al final)</p>
                 </div>
             `;
             item.addEventListener('click', () => this.addToPool(char));
@@ -199,10 +199,19 @@ class HostView {
         this.client.selectedPool.forEach(char => {
             const item = document.createElement('div');
             item.className = 'pool-item';
-            item.innerHTML = `
-                <img src="${char.imageUrl}" alt="${char.characterName}">
-                <button class="remove-btn" data-id="${char.id}">×</button>
-            `;
+            
+            if (char.isBlind) {
+                item.innerHTML = `
+                    <div class="blind-placeholder-small">🎭</div>
+                    <p class="pool-item-name">${char.animeName}</p>
+                    <button class="remove-btn" data-id="${char.id}">×</button>
+                `;
+            } else {
+                item.innerHTML = `
+                    <img src="${char.imageUrl}" alt="${char.characterName}">
+                    <button class="remove-btn" data-id="${char.id}">×</button>
+                `;
+            }
             
             item.querySelector('.remove-btn').addEventListener('click', (e) => {
                 e.stopPropagation();

@@ -265,7 +265,8 @@ class WaifuAuctionClient {
                         id: char.id.toString(),
                         characterName: char.name.full,
                         imageUrl: char.image.large,
-                        animeName: anime.title.romaji || anime.title.english
+                        animeName: anime.title.romaji || anime.title.english,
+                        isBlind: true // Mark as blind mode for random characters
                     });
                 });
             });
