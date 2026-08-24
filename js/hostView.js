@@ -95,8 +95,7 @@ class HostView {
     updateConfig(newConfig) {
         this.config = { ...this.config, ...newConfig };
         if (this.client.room) {
-            const configUpdated = this.client.room.makeAction('configUpdated');
-            configUpdated.send(this.config);
+            this.client.send('configUpdated', this.config);
         }
     }
 
@@ -203,8 +202,7 @@ class HostView {
         this.client.selectedPool.push(normalizedChar);
         this.updatePoolDisplay();
         if (this.client.room) {
-            const poolUpdated = this.client.room.makeAction('poolUpdated');
-            poolUpdated.send({ characters: this.client.selectedPool });
+            this.client.send('poolUpdated', { characters: this.client.selectedPool });
         }
     }
 
@@ -212,8 +210,7 @@ class HostView {
         this.client.selectedPool = this.client.selectedPool.filter(c => c.id !== characterId);
         this.updatePoolDisplay();
         if (this.client.room) {
-            const poolUpdated = this.client.room.makeAction('poolUpdated');
-            poolUpdated.send({ characters: this.client.selectedPool });
+            this.client.send('poolUpdated', { characters: this.client.selectedPool });
         }
     }
 
@@ -289,8 +286,7 @@ class HostView {
         }
 
         if (this.client.room) {
-            const gameStart = this.client.room.makeAction('gameStart');
-            gameStart.send({ config: this.config, pool: this.client.selectedPool });
+            this.client.send('gameStart', { config: this.config, pool: this.client.selectedPool });
         }
     }
 
@@ -325,8 +321,7 @@ class HostView {
         
         // Broadcast lobby update to all players
         if (this.client.room) {
-            const lobbyUpdate = this.client.room.makeAction('lobbyUpdate');
-            lobbyUpdate.send({ players: this.players });
+            this.client.send('lobbyUpdate', { players: this.players });
         }
     }
 
@@ -337,13 +332,7 @@ class HostView {
     }
 
     setupGameLogic() {
-        // Listen for bids from players
-        if (this.client.room) {
-            const bidUpdate = this.client.room.makeAction('bidUpdate');
-            bidUpdate.onMessage((data) => {
-                this.handleBid(data);
-            });
-        }
+        // Bids are handled in client.js onMessage handler
     }
 
     handleBid(data) {
@@ -377,8 +366,7 @@ class HostView {
 
         // Broadcast bid update to all
         if (this.client.room) {
-            const bidUpdate = this.client.room.makeAction('bidUpdate');
-            bidUpdate.send(data);
+            this.client.send('bidUpdate', data);
         }
     }
 
@@ -405,8 +393,7 @@ class HostView {
 
         // Broadcast round start
         if (this.client.room) {
-            const roundStart = this.client.room.makeAction('roundStart');
-            roundStart.send({
+            this.client.send('roundStart', {
                 roundIndex: this.currentRound.index,
                 character: character,
                 timeLimit: this.config.timePerCharacter
@@ -434,8 +421,7 @@ class HostView {
 
         // Broadcast round result
         if (this.client.room) {
-            const roundResult = this.client.room.makeAction('roundResult');
-            roundResult.send({
+            this.client.send('roundResult', {
                 winnerId: this.currentRound.highestBidder,
                 winnerName: this.currentRound.highestBidder ? this.players[this.currentRound.highestBidder].name : null,
                 winningBid: this.currentRound.highestBid,
@@ -451,8 +437,7 @@ class HostView {
     endGame() {
         // Broadcast game end
         if (this.client.room) {
-            const gameEnd = this.client.room.makeAction('gameEnd');
-            gameEnd.send({ players: this.players });
+            this.client.send('gameEnd', { players: this.players });
         }
     }
 
@@ -519,16 +504,14 @@ class HostView {
         }
 
         if (this.client.room) {
-            const bidUpdate = this.client.room.makeAction('bidUpdate');
-            bidUpdate.send({ playerId: this.client.playerId, playerName: this.client.playerName, amount: bidAmount });
+            this.client.send('bidUpdate', { playerId: this.client.playerId, playerName: this.client.playerName, amount: bidAmount });
         }
         document.getElementById('bid-amount').value = '';
     }
 
     pass() {
         if (this.client.room) {
-            const bidUpdate = this.client.room.makeAction('bidUpdate');
-            bidUpdate.send({ playerId: this.client.playerId, playerName: this.client.playerName, pass: true });
+            this.client.send('bidUpdate', { playerId: this.client.playerId, playerName: this.client.playerName, pass: true });
         }
     }
 

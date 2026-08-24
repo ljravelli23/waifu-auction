@@ -67,8 +67,7 @@ class PlayerView {
         
         // Notify host that player joined
         if (this.client.room) {
-            const playerJoined = this.client.room.makeAction('playerJoined');
-            playerJoined.send({ playerId: this.client.playerId, playerName: this.client.playerName });
+            this.client.send('playerJoined', { playerId: this.client.playerId, playerName: this.client.playerName });
         }
         
         this.showJoinStatus('¡Unido exitosamente! Esperando al anfitrión...', 'success');
@@ -176,16 +175,14 @@ class PlayerView {
         }
 
         if (this.client.room) {
-            const bidUpdate = this.client.room.makeAction('bidUpdate');
-            bidUpdate.send({ playerId: this.client.playerId, playerName: this.client.playerName, amount: bidAmount });
+            this.client.send('bidUpdate', { playerId: this.client.playerId, playerName: this.client.playerName, amount: bidAmount });
         }
         document.getElementById('bid-amount').value = '';
     }
 
     pass() {
         if (this.client.room) {
-            const bidUpdate = this.client.room.makeAction('bidUpdate');
-            bidUpdate.send({ playerId: this.client.playerId, playerName: this.client.playerName, pass: true });
+            this.client.send('bidUpdate', { playerId: this.client.playerId, playerName: this.client.playerName, pass: true });
         }
         document.getElementById('bid-amount').disabled = true;
         document.getElementById('btn-bid').disabled = true;

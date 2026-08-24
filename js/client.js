@@ -36,112 +36,6 @@ class WaifuAuctionClient {
     }
 
     setupRoomEvents() {
-        // Player joined
-        const playerJoined = this.room.makeAction('playerJoined');
-        playerJoined.onMessage((data) => {
-            if (this.isHost && this.hostView) {
-                this.hostView.onPlayerJoined(data);
-            } else if (!this.isHost && this.playerView) {
-                this.playerView.onPlayerJoined(data);
-            }
-        });
-
-        // Lobby update
-        const lobbyUpdate = this.room.makeAction('lobbyUpdate');
-        lobbyUpdate.onMessage((data) => {
-            if (this.isHost && this.hostView) {
-                this.hostView.onLobbyUpdate(data);
-            } else if (!this.isHost && this.playerView) {
-                this.playerView.onLobbyUpdate(data);
-            }
-        });
-
-        // Game start
-        const gameStart = this.room.makeAction('gameStart');
-        gameStart.onMessage((data) => {
-            if (this.isHost && this.hostView) {
-                this.hostView.onGameStart(data);
-            } else if (!this.isHost && this.playerView) {
-                this.playerView.onGameStart(data);
-            }
-        });
-
-        // Round start
-        const roundStart = this.room.makeAction('roundStart');
-        roundStart.onMessage((data) => {
-            if (this.isHost && this.hostView) {
-                this.hostView.onRoundStart(data);
-            } else if (!this.isHost && this.playerView) {
-                this.playerView.onRoundStart(data);
-            }
-        });
-
-        // Bid update
-        const bidUpdate = this.room.makeAction('bidUpdate');
-        bidUpdate.onMessage((data) => {
-            if (this.isHost && this.hostView) {
-                this.hostView.onBidUpdate(data);
-            } else if (!this.isHost && this.playerView) {
-                this.playerView.onBidUpdate(data);
-            }
-        });
-
-        // Round result
-        const roundResult = this.room.makeAction('roundResult');
-        roundResult.onMessage((data) => {
-            if (this.isHost && this.hostView) {
-                this.hostView.onRoundResult(data);
-            } else if (!this.isHost && this.playerView) {
-                this.playerView.onRoundResult(data);
-            }
-        });
-
-        // Voting start
-        const votingStart = this.room.makeAction('votingStart');
-        votingStart.onMessage((data) => {
-            if (this.isHost && this.hostView) {
-                this.hostView.onVotingStart(data);
-            } else if (!this.isHost && this.playerView) {
-                this.playerView.onVotingStart(data);
-            }
-        });
-
-        // Voting end
-        const votingEnd = this.room.makeAction('votingEnd');
-        votingEnd.onMessage((data) => {
-            if (this.isHost && this.hostView) {
-                this.hostView.onVotingEnd(data);
-            } else if (!this.isHost && this.playerView) {
-                this.playerView.onVotingEnd(data);
-            }
-        });
-
-        // Game end
-        const gameEnd = this.room.makeAction('gameEnd');
-        gameEnd.onMessage((data) => {
-            if (this.isHost && this.hostView) {
-                this.hostView.onGameEnd(data);
-            } else if (!this.isHost && this.playerView) {
-                this.playerView.onGameEnd(data);
-            }
-        });
-
-        // Config updated
-        const configUpdated = this.room.makeAction('configUpdated');
-        configUpdated.onMessage((data) => {
-            if (this.isHost && this.hostView) {
-                this.hostView.onConfigUpdated(data);
-            }
-        });
-
-        // Pool updated
-        const poolUpdated = this.room.makeAction('poolUpdated');
-        poolUpdated.onMessage((data) => {
-            if (this.isHost && this.hostView) {
-                this.hostView.onPoolUpdated(data);
-            }
-        });
-
         // Peer join/leave
         this.room.onPeerJoin((peerId) => {
             console.log('Peer joined:', peerId);
@@ -150,6 +44,61 @@ class WaifuAuctionClient {
         this.room.onPeerLeave((peerId) => {
             console.log('Peer left:', peerId);
         });
+
+        // Generic message handler
+        this.room.onMessage((data, peerId) => {
+            console.log('Message received:', data, 'from:', peerId);
+            
+            if (data.type === 'playerJoined') {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onPlayerJoined(data.payload);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onPlayerJoined(data.payload);
+                }
+            } else if (data.type === 'lobbyUpdate') {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onLobbyUpdate(data.payload);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onLobbyUpdate(data.payload);
+                }
+            } else if (data.type === 'gameStart') {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onGameStart(data.payload);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onGameStart(data.payload);
+                }
+            } else if (data.type === 'roundStart') {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onRoundStart(data.payload);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onRoundStart(data.payload);
+                }
+            } else if (data.type === 'bidUpdate') {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onBidUpdate(data.payload);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onBidUpdate(data.payload);
+                }
+            } else if (data.type === 'roundResult') {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onRoundResult(data.payload);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onRoundResult(data.payload);
+                }
+            } else if (data.type === 'gameEnd') {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onGameEnd(data.payload);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onGameEnd(data.payload);
+                }
+            }
+        });
+    }
+
+    send(type, payload) {
+        if (this.room) {
+            this.room.send({ type, payload });
+        }
     }
 
     generateRoomCode() {
