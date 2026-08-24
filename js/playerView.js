@@ -47,7 +47,9 @@ class PlayerView {
             return;
         }
 
-        this.client.socket.emit('player:join', { name, roomCode });
+        this.client.playerName = name;
+        this.client.connect(roomCode);
+        this.showJoinStatus('Conectando...', 'success');
     }
 
     showJoinStatus(message, type) {
@@ -57,18 +59,20 @@ class PlayerView {
     }
 
     onPlayerJoined(data) {
-        if (data.success) {
-            this.client.playerId = data.playerId;
-            this.client.playerName = document.getElementById('player-name').value;
-            
-            // Save name to cache
-            localStorage.setItem('waifuAuctionPlayerName', this.client.playerName);
-            
-            this.showJoinStatus('¡Unido exitosamente! Esperando al anfitrión...', 'success');
-            this.client.showScreen('lobby-waiting');
-        } else {
-            this.showJoinStatus(`Error: ${data.error}`, 'error');
+        // For P2P, we're connected immediately
+        this.client.playerId = 'player-' + Date.now();
+        
+        // Save name to cache
+        localStorage.setItem('waifuAuctionPlayerName', this.client.playerName);
+        
+        // Notify host that player joined
+        if (this.client.room) {
+            const playerJoined = this.client.room.makeAction('playerJoined');
+            playerJoined.send({ playerId: this.client.playerId, playerName: this.client.playerName });
         }
+        
+        this.showJoinStatus('¡Unido exitosamente! Esperando al anfitrión...', 'success');
+        this.client.showScreen('lobby-waiting');
     }
 
     onJoinError(data) {
@@ -95,70 +99,50 @@ class PlayerView {
     }
 
     onGameStart(data) {
-        this.client.gameState = data.state;
         this.client.showScreen('game-screen');
         this.setupGameUI();
     }
 
     setupGameUI() {
         document.getElementById('player-name-display').textContent = this.client.playerName;
-        this.updatePlayerInfo();
-    }
-
-    updatePlayerInfo() {
-        if (!this.client.gameState || !this.client.gameState.players[this.client.playerId]) {
-            return;
-        }
-
-        const player = this.client.gameState.players[this.client.playerId];
-        document.getElementById('player-balance').textContent = this.client.formatCurrency(player.balance);
-        document.getElementById('player-collection').textContent = 
-            `${player.collection.length}/${this.client.gameState.config.maxCharactersPerPlayer}`;
     }
 
     onRoundStart(data) {
-        // Update round display
-        const roundDisplay = document.getElementById('round-display');
-        if (data.roundTotal) {
-            roundDisplay.textContent = `Ronda ${data.roundIndex + 1} de ${data.roundTotal}`;
+        this.client.showScreen('game-screen');
+        this.setupGameUI();
+        
+        const character = data.character;
+        
+        // Display character
+        const characterDisplay = document.getElementById('character-display');
+        if (character.isBlind) {
+            characterDisplay.innerHTML = `
+                <div class="blind-placeholder-large">🎭</div>
+                <h2>${character.animeName}</h2>
+                <p class="blind-mode-text">Personaje oculto (se revelará al final)</p>
+            `;
         } else {
-            roundDisplay.textContent = `Ronda ${data.roundIndex + 1}`;
+            characterDisplay.innerHTML = `
+                <img src="${character.imageUrl}" alt="${character.characterName}">
+                <h2>${character.characterName}</h2>
+                <p>${character.animeName}</p>
+            `;
         }
 
-        // Update anime name
-        document.getElementById('anime-name').textContent = data.animeName;
-
         // Reset bid display
-        document.getElementById('current-bid').textContent = '0';
-        document.getElementById('current-bidder').textContent = '-';
-
-        // Reset bidding controls
-        document.getElementById('bid-amount').value = '';
+        document.getElementById('current-bid').textContent = this.client.formatCurrency(0);
+        document.getElementById('current-bidder').textContent = 'Nadie';
+        
+        // Enable bidding
         document.getElementById('bid-amount').disabled = false;
         document.getElementById('btn-bid').disabled = false;
         document.getElementById('btn-pass').disabled = false;
-
-        // Show/hide turn indicator
-        const turnIndicator = document.getElementById('turn-indicator');
-        if (data.openerPlayerId) {
-            turnIndicator.classList.remove('hidden');
-            // Get opener name from gameState
-            if (this.client.gameState && this.client.gameState.players[data.openerPlayerId]) {
-                document.getElementById('opener-name').textContent = 
-                    this.client.gameState.players[data.openerPlayerId].name;
-            }
-        } else {
-            turnIndicator.classList.add('hidden');
-        }
-
+        
         // Start timer
-        this.startTimer(data.timeLimit);
-
-        // Update players summary
-        this.updatePlayersSummary();
+        this.startRoundTimer(data.timeLimit);
     }
 
-    startTimer(seconds) {
+    startRoundTimer(seconds) {
         if (this.timerInterval) {
             clearInterval(this.timerInterval);
         }
@@ -179,78 +163,33 @@ class PlayerView {
     }
 
     onBidUpdate(data) {
-        document.getElementById('current-bid').textContent = this.client.formatCurrency(data.highestBid);
-        
-        if (data.highestBidderId && this.client.gameState && this.client.gameState.players[data.highestBidderId]) {
-            const bidderName = this.client.gameState.players[data.highestBidderId].name;
-            document.getElementById('current-bidder').textContent = `por ${bidderName}`;
-        } else {
-            document.getElementById('current-bidder').textContent = '-';
-        }
-
-        // Update current bid reference
-        this.currentBid = data.highestBid;
-
-        // Check if current player can still bid
-        this.updateBiddingControls();
-    }
-
-    updateBiddingControls() {
-        const canBid = this.canPlayerBid();
-        document.getElementById('bid-amount').disabled = !canBid;
-        document.getElementById('btn-bid').disabled = !canBid;
-        document.getElementById('btn-pass').disabled = !canBid;
-    }
-
-    canPlayerBid() {
-        if (!this.client.gameState) return false;
-        
-        const player = this.client.gameState.players[this.client.playerId];
-        if (!player) return false;
-
-        // Check balance
-        if (player.balance <= this.currentBid) return false;
-
-        // Check character limit
-        if (player.collection.length >= this.client.gameState.config.maxCharactersPerPlayer) return false;
-
-        // Check turn-based mode
-        if (this.client.gameState.config.biddingMode === 'turnBased' && this.currentBid === 0) {
-            const currentRound = this.client.gameState.currentRound;
-            if (currentRound.openerPlayerId && currentRound.openerPlayerId !== this.client.playerId) {
-                return false;
-            }
-        }
-
-        return true;
+        document.getElementById('current-bid').textContent = this.client.formatCurrency(data.amount);
+        document.getElementById('current-bidder').textContent = `por ${data.playerName}`;
+        this.currentBid = data.amount;
     }
 
     placeBid() {
-        const bidInput = document.getElementById('bid-amount');
-        const amount = parseInt(bidInput.value);
-
-        if (!amount || amount <= this.currentBid) {
-            alert('La puja debe ser mayor que la puja actual');
+        const bidAmount = parseInt(document.getElementById('bid-amount').value);
+        if (isNaN(bidAmount) || bidAmount <= 0) {
+            alert('Ingresa una puja válida');
             return;
         }
 
-        this.client.socket.emit('player:bid', { amount });
-        bidInput.value = '';
+        if (this.client.room) {
+            const bidUpdate = this.client.room.makeAction('bidUpdate');
+            bidUpdate.send({ playerId: this.client.playerId, playerName: this.client.playerName, amount: bidAmount });
+        }
+        document.getElementById('bid-amount').value = '';
     }
 
     pass() {
-        this.client.socket.emit('player:pass');
+        if (this.client.room) {
+            const bidUpdate = this.client.room.makeAction('bidUpdate');
+            bidUpdate.send({ playerId: this.client.playerId, playerName: this.client.playerName, pass: true });
+        }
         document.getElementById('bid-amount').disabled = true;
         document.getElementById('btn-bid').disabled = true;
         document.getElementById('btn-pass').disabled = true;
-    }
-
-    onBidRejected(data) {
-        alert(`Puja rechazada: ${data.reason}`);
-    }
-
-    onPlayerPassed(data) {
-        // Could add visual feedback for passed players
     }
 
     onRoundResult(data) {
@@ -259,22 +198,15 @@ class PlayerView {
             clearInterval(this.timerInterval);
         }
 
-        // Update local game state
-        if (this.client.gameState && this.client.gameState.players[this.client.playerId]) {
-            this.client.gameState.players[this.client.playerId].balance = data.balances[this.client.playerId];
-            this.client.gameState.players[this.client.playerId].collection = data.collections[this.client.playerId];
-        }
-
         // Show result screen
         this.client.showScreen('round-result');
         
-        document.getElementById('result-image').src = data.imageUrl;
-        document.getElementById('result-character').textContent = data.characterName;
-        document.getElementById('result-anime').textContent = data.animeName;
+        document.getElementById('result-image').src = data.character.imageUrl;
+        document.getElementById('result-character').textContent = data.character.characterName;
+        document.getElementById('result-anime').textContent = data.character.animeName;
         
-        if (data.winnerId && this.client.gameState && this.client.gameState.players[data.winnerId]) {
-            document.getElementById('result-winner').textContent = 
-                `Ganado por: ${this.client.gameState.players[data.winnerId].name}`;
+        if (data.winnerName) {
+            document.getElementById('result-winner').textContent = `Ganado por: ${data.winnerName}`;
         } else {
             document.getElementById('result-winner').textContent = 'Sin ganador';
         }
@@ -294,224 +226,30 @@ class PlayerView {
                 clearInterval(countdownInterval);
                 // Return to game screen for next round
                 this.client.showScreen('game-screen');
-                this.updatePlayerInfo();
             }
         }, 1000);
     }
 
-    updatePlayersSummary() {
-        if (!this.client.gameState) return;
-
-        const playersSummary = document.getElementById('game-players');
-        playersSummary.innerHTML = '';
-
-        Object.entries(this.client.gameState.players).forEach(([playerId, player]) => {
-            const card = document.createElement('div');
-            card.className = 'mini-player-card';
-            card.innerHTML = `
-                <strong>${player.name}</strong><br>
-                💰 ${this.client.formatCurrency(player.balance)}<br>
-                🎭 ${player.collection.length}/${this.client.gameState.config.maxCharactersPerPlayer}
-            `;
-            playersSummary.appendChild(card);
-        });
-    }
-
-    onReadyForVoting(data) {
-        // Players wait for host to select voting mode
-        this.client.showScreen('lobby-waiting');
-        document.querySelector('#lobby-waiting h1').textContent = '⏳ Esperando Votación';
-        document.querySelector('#lobby-waiting p').textContent = 'El anfitrión está seleccionando el modo de votación...';
-    }
-
-    onVotingStart(data) {
-        this.client.showScreen('voting-screen');
-        this.setupVotingUI(data);
-    }
-
-    setupVotingUI(data) {
-        const modeDisplay = document.getElementById('voting-mode-display');
-        const itemsContainer = document.getElementById('voting-items');
-        
-        // Display mode
-        const modeNames = {
-            'byPrice': 'Por Precio - Vota por la mejor compra de cada jugador',
-            'oneByOne': 'Uno por Uno - Califica cada personaje del 1 al 10',
-            'byRound': 'Por Ronda - Vota por el mejor personaje de cada ronda'
-        };
-        modeDisplay.textContent = modeNames[data.mode] || data.mode;
-
-        // Display items
-        itemsContainer.innerHTML = '';
-        this.currentVoteData = { mode: data.mode, votedItems: new Set() };
-
-        data.items.forEach(item => {
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'voting-item';
-            itemDiv.dataset.itemId = item.id;
-
-            let content = '';
-            if (item.type === 'character' && item.character) {
-                content = `
-                    <img src="${item.character.imageUrl}" alt="${item.name}">
-                    <h4>${item.name}</h4>
-                    <p>${item.character.animeName}</p>
-                `;
-            } else if (item.type === 'player') {
-                content = `
-                    <h4>${item.name}</h4>
-                    <p>Mejor compra: ${item.character ? item.character.characterName : 'N/A'}</p>
-                `;
-            } else if (item.type === 'round') {
-                content = `
-                    <h4>${item.name}</h4>
-                    <p>${item.characters.length} personajes</p>
-                `;
-            }
-
-            // Add rating buttons for oneByOne mode
-            if (data.mode === 'oneByOne') {
-                content += `
-                    <div class="rating">
-                        ${[1,2,3,4,5,6,7,8,9,10].map(num => 
-                            `<button class="rating-btn" data-value="${num}">${num}</button>`
-                        ).join('')}
-                    </div>
-                `;
-            } else {
-                content += `
-                    <button class="btn btn-primary vote-btn" data-item-id="${item.id}">Votar</button>
-                `;
-            }
-
-            itemDiv.innerHTML = content;
-            itemsContainer.appendChild(itemDiv);
-        });
-
-        // Add event listeners
-        if (data.mode === 'oneByOne') {
-            itemsContainer.querySelectorAll('.rating-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const itemDiv = e.target.closest('.voting-item');
-                    const itemId = itemDiv.dataset.itemId;
-                    const value = parseInt(e.target.dataset.value);
-                    
-                    // Remove active class from siblings
-                    itemDiv.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('active'));
-                    e.target.classList.add('active');
-                    
-                    this.submitVote(itemId, value);
-                });
-            });
-        } else {
-            itemsContainer.querySelectorAll('.vote-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const itemId = e.target.dataset.itemId;
-                    this.submitVote(itemId, 1); // Simple vote
-                });
-            });
-        }
-    }
-
-    submitVote(targetId, value) {
-        if (this.currentVoteData.votedItems.has(targetId)) {
-            return; // Already voted for this item
-        }
-
-        this.currentVoteData.votedItems.add(targetId);
-        this.client.socket.emit('player:vote', { targetId, value });
-
-        // Disable voting for this item
-        const itemDiv = document.querySelector(`.voting-item[data-item-id="${targetId}"]`);
-        if (itemDiv) {
-            itemDiv.querySelectorAll('button').forEach(btn => btn.disabled = true);
-        }
-
-        // Check if all items voted
-        const totalItems = document.querySelectorAll('.voting-item').length;
-        if (this.currentVoteData.votedItems.size >= totalItems) {
-            document.getElementById('voting-status').textContent = '✓ Votos enviados. Esperando resultados...';
-            document.getElementById('voting-status').className = 'status-message success';
-        }
-    }
-
-    onVotingResult(data) {
-        this.client.showScreen('voting-results');
-        this.displayVotingResults(data.results);
-    }
-
-    displayVotingResults(results) {
-        const resultsList = document.getElementById('voting-results-list');
-        resultsList.innerHTML = '';
-
-        const sortedResults = Object.values(results).sort((a, b) => b.average - a.average);
-
-        sortedResults.forEach((result, index) => {
-            const item = document.createElement('div');
-            item.className = `result-item ${index === 0 ? 'winner' : ''}`;
-            
-            let content = '';
-            if (result.type === 'character' && result.character) {
-                content = `
-                    <img src="${result.character.imageUrl}" alt="${result.name}">
-                    <div class="result-item-info">
-                        <h4>${result.name}</h4>
-                        <p>${result.character.animeName}</p>
-                        <p class="score">Puntuación: ${result.average.toFixed(1)}</p>
-                    </div>
-                `;
-            } else if (result.type === 'player') {
-                content = `
-                    <div class="result-item-info">
-                        <h4>${result.name}</h4>
-                        <p>Mejor compra: ${result.character ? result.character.characterName : 'N/A'}</p>
-                        <p class="score">Puntuación: ${result.average.toFixed(1)}</p>
-                    </div>
-                `;
-            } else if (result.type === 'round') {
-                content = `
-                    <div class="result-item-info">
-                        <h4>${result.name}</h4>
-                        <p>${result.characters.length} personajes</p>
-                        <p class="score">Puntuación: ${result.average.toFixed(1)}</p>
-                    </div>
-                `;
-            }
-
-            item.innerHTML = content;
-            resultsList.appendChild(item);
-        });
-
-        // Change button text for players
-        const finalResultsBtn = document.getElementById('btn-final-results');
-        finalResultsBtn.textContent = 'Esperando al anfitrión...';
-        finalResultsBtn.disabled = true;
-    }
-
     onGameEnd(data) {
         this.client.showScreen('final-results');
-        this.displayFinalResults(data.summary);
+        this.displayFinalResults(data.players);
     }
 
-    displayFinalResults(state) {
+    displayFinalResults(players) {
         const collectionsContainer = document.getElementById('final-collections');
         collectionsContainer.innerHTML = '';
 
-        Object.entries(state.players).forEach(([playerId, player]) => {
+        Object.entries(players).forEach(([playerId, player]) => {
             const collectionDiv = document.createElement('div');
             collectionDiv.className = 'player-collection';
             
-            const characterCards = player.collection.map(charId => {
-                const roundResult = state.roundHistory.find(r => r.characterId === charId);
-                if (roundResult) {
-                    return `
-                        <div class="collection-item">
-                            <img src="${roundResult.imageUrl}" alt="${roundResult.characterName}">
-                            <span class="price">${roundResult.winningBid}</span>
-                        </div>
-                    `;
-                }
-                return '';
+            const characterCards = player.collection.map(char => {
+                return `
+                    <div class="collection-item">
+                        <img src="${char.imageUrl}" alt="${char.characterName}">
+                        <span class="price">${this.client.formatCurrency(char.price || 0)}</span>
+                    </div>
+                `;
             }).join('');
 
             collectionDiv.innerHTML = `
@@ -528,24 +266,6 @@ class PlayerView {
 
         // Hide new game button for players
         document.getElementById('btn-new-game').style.display = 'none';
-    }
-
-    onReconnected(data) {
-        // Restore game state and show appropriate screen
-        if (data.state.phase === 'lobby') {
-            this.client.showScreen('lobby-waiting');
-            this.updateWaitingLobby(data.state.players);
-        } else if (data.state.phase === 'inProgress') {
-            this.client.showScreen('game-screen');
-            this.client.gameState = data.state;
-            this.setupGameUI();
-        } else if (data.state.phase === 'voting') {
-            this.client.showScreen('lobby-waiting');
-            document.querySelector('#lobby-waiting h1').textContent = '⏳ Votación en progreso';
-        } else if (data.state.phase === 'ended') {
-            this.client.showScreen('final-results');
-            this.displayFinalResults(data.state);
-        }
     }
 }
 

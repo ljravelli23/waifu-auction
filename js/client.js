@@ -1,7 +1,7 @@
 // Shared client utilities
 class WaifuAuctionClient {
     constructor() {
-        this.socket = null;
+        this.room = null;
         this.playerId = null;
         this.playerName = null;
         this.isHost = false;
@@ -9,139 +9,163 @@ class WaifuAuctionClient {
         this.selectedPool = [];
         this.hostView = null;
         this.playerView = null;
+        this.APP_ID = 'waifu-auction-v1';
+        this.roomCode = null;
     }
 
-    connect() {
+    connect(roomCode = null) {
         try {
-            this.socket = io();
+            const code = roomCode || this.generateRoomCode();
+            this.roomCode = code;
             
-            this.socket.on('connect', () => {
-                console.log('Connected to server');
-                
-                // If host, emit host:join event
-                if (this.isHost) {
-                    console.log('Emitting host:join');
-                    this.socket.emit('host:join');
+            console.log('Joining room:', code);
+            this.room = window.Tristero.joinRoom({ appId: this.APP_ID }, code);
+            
+            this.setupRoomEvents();
+            
+            if (this.isHost) {
+                console.log('Host initialized with room code:', code);
+                if (this.hostView) {
+                    this.hostView.onHostJoined({ success: true, roomCode: code });
                 }
-            });
-
-            this.socket.on('disconnect', () => {
-                console.log('Disconnected from server');
-            });
-
-            this.socket.on('error', (data) => {
-                console.error('Server error:', data.message);
-                alert(data.message);
-            });
-
-            // Host events
-            this.socket.on('host:joined', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onHostJoined(data);
-                }
-            });
-
-            // Game events
-            this.socket.on('lobby:update', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onLobbyUpdate(data);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onLobbyUpdate(data);
-                }
-            });
-
-            this.socket.on('game:start', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onGameStart(data);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onGameStart(data);
-                }
-            });
-
-            this.socket.on('round:start', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onRoundStart(data);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onRoundStart(data);
-                }
-            });
-
-            this.socket.on('bid:update', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onBidUpdate(data);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onBidUpdate(data);
-                }
-            });
-
-            this.socket.on('round:result', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onRoundResult(data);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onRoundResult(data);
-                }
-            });
-
-            this.socket.on('voting:start', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onVotingStart(data);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onVotingStart(data);
-                }
-            });
-
-            this.socket.on('voting:end', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onVotingEnd(data);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onVotingEnd(data);
-                }
-            });
-
-            this.socket.on('game:end', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onGameEnd(data);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onGameEnd(data);
-                }
-            });
-
-            this.socket.on('game:readyForVoting', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onReadyForVoting(data);
-                }
-            });
-
-            this.socket.on('player:joined', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onPlayerJoined(data);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onPlayerJoined(data);
-                }
-            });
-
-            this.socket.on('config:updated', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onConfigUpdated(data);
-                }
-            });
-
-            this.socket.on('pool:updated', (data) => {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onPoolUpdated(data);
-                }
-            });
-
-            this.socket.on('player:reconnected', (data) => {
-                if (data.success) {
-                    this.playerId = data.success ? this.socket.id : this.playerId;
-                    this.gameState = data.state;
-                    this.onReconnected(data);
-                }
-            });
+            }
         } catch (error) {
-            console.error('Error connecting to socket:', error);
+            console.error('Error connecting to room:', error);
+            alert('Error connecting to room: ' + error.message);
         }
+    }
+
+    setupRoomEvents() {
+        // Player joined
+        const playerJoined = this.room.makeAction('playerJoined');
+        playerJoined.onMessage((data) => {
+            if (this.isHost && this.hostView) {
+                this.hostView.onPlayerJoined(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onPlayerJoined(data);
+            }
+        });
+
+        // Lobby update
+        const lobbyUpdate = this.room.makeAction('lobbyUpdate');
+        lobbyUpdate.onMessage((data) => {
+            if (this.isHost && this.hostView) {
+                this.hostView.onLobbyUpdate(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onLobbyUpdate(data);
+            }
+        });
+
+        // Game start
+        const gameStart = this.room.makeAction('gameStart');
+        gameStart.onMessage((data) => {
+            if (this.isHost && this.hostView) {
+                this.hostView.onGameStart(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onGameStart(data);
+            }
+        });
+
+        // Round start
+        const roundStart = this.room.makeAction('roundStart');
+        roundStart.onMessage((data) => {
+            if (this.isHost && this.hostView) {
+                this.hostView.onRoundStart(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onRoundStart(data);
+            }
+        });
+
+        // Bid update
+        const bidUpdate = this.room.makeAction('bidUpdate');
+        bidUpdate.onMessage((data) => {
+            if (this.isHost && this.hostView) {
+                this.hostView.onBidUpdate(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onBidUpdate(data);
+            }
+        });
+
+        // Round result
+        const roundResult = this.room.makeAction('roundResult');
+        roundResult.onMessage((data) => {
+            if (this.isHost && this.hostView) {
+                this.hostView.onRoundResult(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onRoundResult(data);
+            }
+        });
+
+        // Voting start
+        const votingStart = this.room.makeAction('votingStart');
+        votingStart.onMessage((data) => {
+            if (this.isHost && this.hostView) {
+                this.hostView.onVotingStart(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onVotingStart(data);
+            }
+        });
+
+        // Voting end
+        const votingEnd = this.room.makeAction('votingEnd');
+        votingEnd.onMessage((data) => {
+            if (this.isHost && this.hostView) {
+                this.hostView.onVotingEnd(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onVotingEnd(data);
+            }
+        });
+
+        // Game end
+        const gameEnd = this.room.makeAction('gameEnd');
+        gameEnd.onMessage((data) => {
+            if (this.isHost && this.hostView) {
+                this.hostView.onGameEnd(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onGameEnd(data);
+            }
+        });
+
+        // Config updated
+        const configUpdated = this.room.makeAction('configUpdated');
+        configUpdated.onMessage((data) => {
+            if (this.isHost && this.hostView) {
+                this.hostView.onConfigUpdated(data);
+            }
+        });
+
+        // Pool updated
+        const poolUpdated = this.room.makeAction('poolUpdated');
+        poolUpdated.onMessage((data) => {
+            if (this.isHost && this.hostView) {
+                this.hostView.onPoolUpdated(data);
+            }
+        });
+
+        // Peer join/leave
+        this.room.onPeerJoin((peerId) => {
+            console.log('Peer joined:', peerId);
+        });
+
+        this.room.onPeerLeave((peerId) => {
+            console.log('Peer left:', peerId);
+        });
+    }
+
+    generateRoomCode() {
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        let code = '';
+        for (let i = 0; i < 4; i++) {
+            code += letters.charAt(Math.floor(Math.random() * letters.length));
+        }
+        return code;
+    }
+
+    showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(screen => {
+            screen.classList.add('hidden');
+        });
+        document.getElementById(screenId).classList.remove('hidden');
     }
 
     // Methods to be overridden by specific views

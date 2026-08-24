@@ -260,7 +260,10 @@
         </div>
     </div>
 
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script type="module">
+        import { joinRoom } from 'https://esm.run/trystero';
+        window.Tristero = { joinRoom };
+    </script>
     <script src="js/client.js"></script>
     <script src="js/hostView.js"></script>
     <script src="js/playerView.js"></script>

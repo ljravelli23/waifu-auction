@@ -2,10 +2,29 @@
 class HostView {
     constructor(client) {
         this.client = client;
-        this.config = {};
+        this.config = {
+            startingBalance: 1000,
+            totalRounds: 5,
+            showRoundCount: true,
+            maxPlayers: 8,
+            maxCharactersPerPlayer: 3,
+            biddingMode: 'free',
+            timePerCharacter: 30,
+            timeoutBehavior: 'skip'
+        };
+        this.players = {};
+        this.currentRound = {
+            index: 0,
+            character: null,
+            highestBid: 0,
+            highestBidder: null,
+            bids: []
+        };
         this.currentAnimeName = '';
         this.currentBid = 0;
+        this.roundTimer = null;
         this.setupEventListeners();
+        this.setupGameLogic();
     }
 
     setupEventListeners() {
@@ -75,8 +94,9 @@ class HostView {
 
     updateConfig(newConfig) {
         this.config = { ...this.config, ...newConfig };
-        if (this.client.socket) {
-            this.client.socket.emit('host:updateConfig', this.config);
+        if (this.client.room) {
+            const configUpdated = this.client.room.makeAction('configUpdated');
+            configUpdated.send(this.config);
         }
     }
 
@@ -182,17 +202,19 @@ class HostView {
 
         this.client.selectedPool.push(normalizedChar);
         this.updatePoolDisplay();
-        this.client.socket.emit('host:setPool', { 
-            characters: this.client.selectedPool 
-        });
+        if (this.client.room) {
+            const poolUpdated = this.client.room.makeAction('poolUpdated');
+            poolUpdated.send({ characters: this.client.selectedPool });
+        }
     }
 
     removeFromPool(characterId) {
         this.client.selectedPool = this.client.selectedPool.filter(c => c.id !== characterId);
         this.updatePoolDisplay();
-        this.client.socket.emit('host:setPool', { 
-            characters: this.client.selectedPool 
-        });
+        if (this.client.room) {
+            const poolUpdated = this.client.room.makeAction('poolUpdated');
+            poolUpdated.send({ characters: this.client.selectedPool });
+        }
     }
 
     updatePoolDisplay() {
@@ -262,10 +284,14 @@ class HostView {
                 alert('Debes ingresar tu nombre para participar como jugador');
                 return;
             }
-            this.client.socket.emit('host:joinAsPlayer', { name: hostName });
+            // Host joins as player - handled locally for P2P
+            this.client.playerName = hostName;
         }
 
-        this.client.socket.emit('host:startGame');
+        if (this.client.room) {
+            const gameStart = this.client.room.makeAction('gameStart');
+            gameStart.send({ config: this.config, pool: this.client.selectedPool });
+        }
     }
 
     // Override client methods
@@ -286,9 +312,148 @@ class HostView {
         }
     }
 
+    onPlayerJoined(data) {
+        console.log('Player joined:', data);
+        this.players[data.playerId] = {
+            id: data.playerId,
+            name: data.playerName,
+            balance: this.config.startingBalance,
+            collection: [],
+            connected: true
+        };
+        this.updateLobbyDisplay();
+        
+        // Broadcast lobby update to all players
+        if (this.client.room) {
+            const lobbyUpdate = this.client.room.makeAction('lobbyUpdate');
+            lobbyUpdate.send({ players: this.players });
+        }
+    }
+
     onGameStart(data) {
         this.client.showScreen('game-screen');
         this.setupGameUI();
+        this.startFirstRound();
+    }
+
+    setupGameLogic() {
+        // Listen for bids from players
+        if (this.client.room) {
+            const bidUpdate = this.client.room.makeAction('bidUpdate');
+            bidUpdate.onMessage((data) => {
+                this.handleBid(data);
+            });
+        }
+    }
+
+    handleBid(data) {
+        if (data.pass) {
+            // Player passed
+            console.log(`${data.playerName} passed`);
+            return;
+        }
+
+        // Validate bid
+        const player = this.players[data.playerId];
+        if (!player) {
+            console.error('Unknown player:', data.playerId);
+            return;
+        }
+
+        if (data.amount <= this.currentRound.highestBid) {
+            console.log('Bid too low:', data.amount, 'vs', this.currentRound.highestBid);
+            return;
+        }
+
+        if (data.amount > player.balance) {
+            console.log('Insufficient balance:', data.amount, 'vs', player.balance);
+            return;
+        }
+
+        // Update highest bid
+        this.currentRound.highestBid = data.amount;
+        this.currentRound.highestBidder = data.playerId;
+        this.currentRound.bids.push(data);
+
+        // Broadcast bid update to all
+        if (this.client.room) {
+            const bidUpdate = this.client.room.makeAction('bidUpdate');
+            bidUpdate.send(data);
+        }
+    }
+
+    startFirstRound() {
+        if (this.client.selectedPool.length === 0) {
+            alert('No hay personajes en el pool');
+            return;
+        }
+        this.currentRound.index = 0;
+        this.startRound();
+    }
+
+    startRound() {
+        if (this.currentRound.index >= this.client.selectedPool.length) {
+            this.endGame();
+            return;
+        }
+
+        const character = this.client.selectedPool[this.currentRound.index];
+        this.currentRound.character = character;
+        this.currentRound.highestBid = 0;
+        this.currentRound.highestBidder = null;
+        this.currentRound.bids = [];
+
+        // Broadcast round start
+        if (this.client.room) {
+            const roundStart = this.client.room.makeAction('roundStart');
+            roundStart.send({
+                roundIndex: this.currentRound.index,
+                character: character,
+                timeLimit: this.config.timePerCharacter
+            });
+        }
+
+        // Start timer
+        this.startRoundTimer();
+    }
+
+    startRoundTimer() {
+        if (this.roundTimer) clearTimeout(this.roundTimer);
+        
+        this.roundTimer = setTimeout(() => {
+            this.resolveRound();
+        }, this.config.timePerCharacter * 1000);
+    }
+
+    resolveRound() {
+        if (this.currentRound.highestBidder) {
+            const winner = this.players[this.currentRound.highestBidder];
+            winner.balance -= this.currentRound.highestBid;
+            winner.collection.push(this.currentRound.character);
+        }
+
+        // Broadcast round result
+        if (this.client.room) {
+            const roundResult = this.client.room.makeAction('roundResult');
+            roundResult.send({
+                winnerId: this.currentRound.highestBidder,
+                winnerName: this.currentRound.highestBidder ? this.players[this.currentRound.highestBidder].name : null,
+                winningBid: this.currentRound.highestBid,
+                character: this.currentRound.character
+            });
+        }
+
+        // Next round
+        this.currentRound.index++;
+        setTimeout(() => this.startRound(), 3000);
+    }
+
+    endGame() {
+        // Broadcast game end
+        if (this.client.room) {
+            const gameEnd = this.client.room.makeAction('gameEnd');
+            gameEnd.send({ players: this.players });
+        }
     }
 
     setupGameUI() {
@@ -347,23 +512,24 @@ class HostView {
     }
 
     placeBid() {
-        const bidInput = document.getElementById('bid-amount');
-        const amount = parseInt(bidInput.value);
-
-        if (!amount || amount <= this.currentBid) {
-            alert('La puja debe ser mayor que la puja actual');
+        const bidAmount = parseInt(document.getElementById('bid-amount').value);
+        if (isNaN(bidAmount) || bidAmount <= 0) {
+            alert('Ingresa una puja válida');
             return;
         }
 
-        this.client.socket.emit('player:bid', { amount });
-        bidInput.value = '';
+        if (this.client.room) {
+            const bidUpdate = this.client.room.makeAction('bidUpdate');
+            bidUpdate.send({ playerId: this.client.playerId, playerName: this.client.playerName, amount: bidAmount });
+        }
+        document.getElementById('bid-amount').value = '';
     }
 
     pass() {
-        this.client.socket.emit('player:pass');
-        document.getElementById('bid-amount').disabled = true;
-        document.getElementById('btn-bid').disabled = true;
-        document.getElementById('btn-pass').disabled = true;
+        if (this.client.room) {
+            const bidUpdate = this.client.room.makeAction('bidUpdate');
+            bidUpdate.send({ playerId: this.client.playerId, playerName: this.client.playerName, pass: true });
+        }
     }
 
     updateBiddingControls() {
