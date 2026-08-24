@@ -8,154 +8,134 @@
 </head>
 <body>
     <div id="app">
-        <!-- Role Selection Screen -->
-        <div id="role-selection" class="screen">
-            <div class="container">
+        <!-- Unified Login Screen -->
+        <div id="initial-screen" class="screen">
+            <div class="login-container">
                 <h1>🎭 Waifu Auction</h1>
-                <p>Subasta de personajes con amigos</p>
-                <div class="role-buttons">
-                    <button id="btn-host" class="btn btn-primary">Soy Anfitrión</button>
-                    <button id="btn-player" class="btn btn-secondary">Soy Jugador</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Host Setup Screen -->
-        <div id="host-setup" class="screen hidden">
-            <div class="container">
-                <h1>⚙️ Configuración de Partida</h1>
+                <p>Ingresa tu nombre para comenzar</p>
                 
-                <div class="config-section">
-                    <h2>Configuración del Juego</h2>
-                    <div class="form-group">
-                        <label>Saldo Inicial:</label>
-                        <input type="number" id="config-startingBalance" value="1000" min="100">
-                    </div>
-                    <div class="form-group">
-                        <label>Jugadores Máximos:</label>
-                        <input type="number" id="config-maxPlayers" value="8" min="2" max="20">
-                    </div>
-                    <div class="form-group">
-                        <label>Personajes por Jugador:</label>
-                        <input type="number" id="config-maxCharactersPerPlayer" value="3" min="1">
-                    </div>
-                    <div class="form-group">
-                        <label>Tiempo por Personaje (segundos):</label>
-                        <input type="number" id="config-timePerCharacter" value="30" min="10">
-                    </div>
-                    <div class="form-group">
-                        <label>Modo de Puja:</label>
-                        <select id="config-biddingMode">
-                            <option value="free">Libre</option>
-                            <option value="turnBased">Por Turnos</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Comportamiento al finalizar tiempo:</label>
-                        <select id="config-timeoutBehavior">
-                            <option value="skip">Saltar personaje</option>
-                            <option value="finalize">Finalizar con puja más alta</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="config-showRoundCount" checked>
-                            Mostrar contador de rondas
-                        </label>
-                    </div>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="config-hostParticipating">
-                            Participar como jugador
-                        </label>
-                    </div>
-                    <div class="form-group" id="host-name-group" style="display: none;">
-                        <label>Tu Nombre como Jugador:</label>
-                        <input type="text" id="host-player-name" placeholder="Ingresa tu nombre" maxlength="20">
-                    </div>
+                <div class="form-group">
+                    <input type="text" id="player-name" placeholder="Tu nombre..." maxlength="20" class="name-input">
                 </div>
 
-                <div class="config-section">
-                    <h2>Seleccionar Personajes</h2>
+                <div class="login-actions">
+                    <div class="host-section">
+                        <button id="btn-host" class="btn btn-primary login-btn">Crear Sala (Anfitrión)</button>
+                    </div>
                     
-                    <div class="filters-section">
-                        <h3>Filtros</h3>
-                        <div class="form-group">
-                            <label>Géneros de Anime:</label>
-                            <div class="genre-checkboxes">
-                                <label><input type="checkbox" class="genre-filter" value="Action"> Acción</label>
-                                <label><input type="checkbox" class="genre-filter" value="Adventure"> Aventura</label>
-                                <label><input type="checkbox" class="genre-filter" value="Comedy"> Comedia</label>
-                                <label><input type="checkbox" class="genre-filter" value="Drama"> Drama</label>
-                                <label><input type="checkbox" class="genre-filter" value="Fantasy"> Fantasía</label>
-                                <label><input type="checkbox" class="genre-filter" value="Romance"> Romance</label>
-                                <label><input type="checkbox" class="genre-filter" value="Horror"> Horror</label>
-                                <label><input type="checkbox" class="genre-filter" value="Sci-Fi"> Ciencia Ficción</label>
-                                <label><input type="checkbox" class="genre-filter" value="Sports"> Deportes</label>
-                                <label><input type="checkbox" class="genre-filter" value="Mystery"> Misterio</label>
-                                <label><input type="checkbox" class="genre-filter" value="Psychological"> Psicológico</label>
-                                <label><input type="checkbox" class="genre-filter" value="Supernatural"> Sobrenatural</label>
-                                <label><input type="checkbox" class="genre-filter" value="Ecchi"> Ecchi</label>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Género de Personaje:</label>
-                            <select id="character-gender-filter">
-                                <option value="all">Todos</option>
-                                <option value="Female">Solo Waifus (Mujeres)</option>
-                                <option value="Male">Solo Hombres</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="search-section">
-                        <input type="text" id="anilist-search" placeholder="Buscar anime o personaje...">
-                        <button id="btn-search" class="btn btn-secondary">Buscar</button>
-                        <button id="btn-random" class="btn btn-primary">🎲 Generar Aleatorios</button>
-                    </div>
-                    <div id="search-results" class="search-results"></div>
-                    <div id="selected-pool" class="selected-pool">
-                        <h3>Personajes Seleccionados: <span id="pool-count">0</span></h3>
-                        <div id="pool-list" class="pool-list"></div>
+                    <div class="divider"><span>O</span></div>
+                    
+                    <div class="join-section">
+                        <input type="text" id="room-code" placeholder="CÓDIGO" maxlength="4" style="text-transform: uppercase;" class="code-input">
+                        <button id="btn-join-game" class="btn btn-secondary login-btn">Unirse</button>
                     </div>
                 </div>
-
-                <div class="lobby-section">
-                    <h2>Lobby</h2>
-                    <div class="form-group">
-                        <label>Código de Sala:</label>
-                        <div id="room-code-display" style="font-size: 2em; font-weight: bold; color: #667eea; text-align: center; padding: 10px; background: #f8f9fa; border-radius: 10px;">---</div>
-                        <p style="font-size: 0.9em; color: #666; text-align: center; margin-top: 5px;">Comparte este código con los jugadores</p>
-                    </div>
-                    <div id="lobby-players" class="player-list"></div>
-                    <button id="btn-start-game" class="btn btn-primary" disabled>Iniciar Partida</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Player Join Screen -->
-        <div id="player-join" class="screen hidden">
-            <div class="container">
-                <h1>🎮 Unirse a Partida</h1>
-                <div class="form-group">
-                    <label>Código de Sala:</label>
-                    <input type="text" id="room-code" placeholder="Código de 4 letras" maxlength="4" style="text-transform: uppercase;">
-                </div>
-                <div class="form-group">
-                    <label>Tu Nombre:</label>
-                    <input type="text" id="player-name" placeholder="Ingresa tu nombre" maxlength="20">
-                </div>
-                <button id="btn-join-game" class="btn btn-primary">Unirse</button>
                 <div id="join-status" class="status-message"></div>
             </div>
         </div>
 
-        <!-- Lobby Screen (Players waiting) -->
-        <div id="lobby-waiting" class="screen hidden">
+        <!-- Unified Lobby Screen -->
+        <div id="unified-lobby" class="screen hidden">
+            <div class="lobby-container">
+                <div class="lobby-header">
+                    <h2>Sala <span id="room-code-display">---</span></h2>
+                </div>
+
+                <div class="lobby-content">
+                    <div class="players-panel">
+                        <h3>Sala de espera</h3>
+                        <div id="lobby-players" class="player-list-dark"></div>
+                    </div>
+
+                    <div class="config-panel">
+                        <h3>Configuración de la partida</h3>
+                        
+                        <div class="config-item">
+                            <label>Modo de juego</label>
+                            <p class="config-desc">Cómo se elige qué personaje sale a subasta en cada turno.</p>
+                            <div class="segmented-control">
+                                <input type="radio" id="mode-eleccion" name="gameMode" value="eleccion" checked>
+                                <label for="mode-eleccion">Elección</label>
+                                
+                                <input type="radio" id="mode-aleatorio" name="gameMode" value="aleatorio">
+                                <label for="mode-aleatorio">Aleatorio</label>
+                                
+                                <input type="radio" id="mode-aciegas" name="gameMode" value="aciegas">
+                                <label for="mode-aciegas">A ciegas</label>
+                            </div>
+                        </div>
+
+                        <div class="config-item toggle-item">
+                            <div>
+                                <label>Máximo de waifus</label>
+                                <p class="config-desc">Cuántos personajes puede tener cada jugador (1-20).</p>
+                            </div>
+                            <div class="toggle-control">
+                                <label class="switch">
+                                    <input type="checkbox" id="config-enableMaxWaifus" checked>
+                                    <span class="slider round"></span>
+                                </label>
+                                <input type="number" id="config-maxWaifus" value="5" min="1" max="20" class="small-number-input">
+                            </div>
+                        </div>
+                        
+                        <div class="config-item toggle-item">
+                            <div>
+                                <label>Máximo de rondas</label>
+                                <p class="config-desc">Limita la duración del juego a un número de rondas.</p>
+                            </div>
+                            <div class="toggle-control">
+                                <label class="switch">
+                                    <input type="checkbox" id="config-enableMaxRounds">
+                                    <span class="slider round"></span>
+                                </label>
+                                <input type="number" id="config-maxRounds" value="10" min="1" max="50" class="small-number-input" disabled>
+                            </div>
+                        </div>
+
+                        <div class="config-item">
+                            <div>
+                                <label>Saldo Inicial</label>
+                                <p class="config-desc">Dinero inicial de cada jugador.</p>
+                            </div>
+                            <input type="number" id="config-startingBalance" value="100" min="10" class="number-input">
+                        </div>
+
+                        <div class="config-item">
+                            <div>
+                                <label>Modo de Puja</label>
+                            </div>
+                            <select id="config-biddingMode" class="dark-select">
+                                <option value="free">Libre (Cualquiera puja en cualquier momento)</option>
+                                <option value="turnBased">Por Turnos</option>
+                            </select>
+                        </div>
+                        
+                        <p class="host-notice">Solo el host puede cambiar la configuración.</p>
+                    </div>
+                </div>
+
+                <div class="lobby-footer">
+                    <button id="btn-start-game" class="btn btn-primary start-btn">Esperando al host...</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Selection Screen (Elección Mode) -->
+        <div id="player-selection-screen" class="screen hidden">
             <div class="container">
-                <h1>⏳ Esperando al Anfitrión</h1>
-                <p>Esperando que el anfitrión inicie la partida...</p>
-                <div id="waiting-players" class="player-list"></div>
+                <h1>🔍 ¡Es tu turno de elegir!</h1>
+                <p>Busca y selecciona el personaje que quieres subastar en esta ronda.</p>
+                
+                <div class="search-section">
+                    <input type="text" id="player-anilist-search" placeholder="Buscar anime o personaje...">
+                    <button id="btn-player-search" class="btn btn-secondary">Buscar</button>
+                    <label style="margin-left: 10px; display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" id="player-selection-blind">
+                        Subastar a ciegas
+                    </label>
+                </div>
+                <div id="player-search-results" class="search-results"></div>
             </div>
         </div>
 
@@ -175,9 +155,9 @@
                 </div>
 
                 <div class="auction-area">
-                    <div class="anime-reveal">
+                    <div class="anime-reveal" id="character-reveal">
                         <h3 id="anime-name">Nombre del Anime</h3>
-                        <p class="blind-mode">🎭 Compra a ciegas - ¡El personaje se revelará al final!</p>
+                        <p class="blind-mode" id="blind-mode-msg">🎭 Compra a ciegas - ¡El personaje se revelará al final!</p>
                     </div>
 
                     <div class="current-bid">

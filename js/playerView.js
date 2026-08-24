@@ -14,15 +14,11 @@ class PlayerView {
     }
 
     setupEventListeners() {
-        // Player button - switches to join screen
-        document.getElementById('btn-player').addEventListener('click', () => {
-            console.log('Player button clicked');
-            this.client.isHost = false;
-            this.client.showScreen('player-join');
-        });
-
         // Join game
-        document.getElementById('btn-join-game').addEventListener('click', () => this.joinGame());
+        const joinBtn = document.getElementById('btn-join-game');
+        if (joinBtn) {
+            joinBtn.addEventListener('click', () => this.joinGame());
+        }
 
         // Bidding controls
         document.getElementById('btn-bid').addEventListener('click', () => this.placeBid());
@@ -32,25 +28,51 @@ class PlayerView {
         document.getElementById('bid-amount').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.placeBid();
         });
+
+        // Player Selection UI
+        const btnPlayerSearch = document.getElementById('btn-player-search');
+        if (btnPlayerSearch) {
+            btnPlayerSearch.addEventListener('click', () => this.searchCharactersForSelection());
+        }
+        const playerSearchInput = document.getElementById('player-anilist-search');
+        if (playerSearchInput) {
+            playerSearchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.searchCharactersForSelection();
+            });
+        }
     }
 
     joinGame() {
         const roomCode = document.getElementById('room-code').value.trim().toUpperCase();
         const name = document.getElementById('player-name').value.trim();
 
-        if (!roomCode) {
-            alert('Por favor ingresa el código de sala');
-            return;
-        }
-
         if (!name) {
             alert('Por favor ingresa tu nombre');
             return;
         }
 
+        if (!roomCode) {
+            alert('Por favor ingresa el código de sala');
+            return;
+        }
+
+        this.client.isHost = false;
         this.client.playerName = name;
+        localStorage.setItem('waifuAuctionPlayerName', name);
+
+        // Hide config controls for player
+        const configInputs = document.querySelectorAll('.config-panel input, .config-panel select');
+        configInputs.forEach(input => input.disabled = true);
+        
+        // Change start button to waiting state
+        const startBtn = document.getElementById('btn-start-game');
+        if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.textContent = 'Esperando al host...';
+        }
+
         this.client.connect(roomCode);
-        this.showJoinStatus('Conectando...', 'success');
+        this.client.showScreen('unified-lobby');
     }
 
     showJoinStatus(message, type) {
@@ -98,6 +120,24 @@ class PlayerView {
         });
     }
 
+    onConfigUpdated(config) {
+        document.getElementById(`mode-${config.gameMode}`).checked = true;
+        document.getElementById('config-enableMaxWaifus').checked = config.enableMaxWaifus;
+        document.getElementById('config-maxWaifus').value = config.maxWaifus;
+        document.getElementById('config-enableMaxRounds').checked = config.enableMaxRounds;
+        document.getElementById('config-maxRounds').value = config.maxRounds;
+        document.getElementById('config-startingBalance').value = config.startingBalance;
+        document.getElementById('config-biddingMode').value = config.biddingMode;
+        
+        // Ensure inputs stay disabled for players
+        const configInputs = document.querySelectorAll('.config-panel input, .config-panel select');
+        configInputs.forEach(input => input.disabled = true);
+    }
+
+    onPoolUpdated(data) {
+        // Pool is no longer shown in the new unified lobby, but we might need it later
+    }
+
     onGameStart(data) {
         this.client.showScreen('game-screen');
         this.setupGameUI();
@@ -114,18 +154,18 @@ class PlayerView {
         const character = data.character;
         
         // Display character
-        const characterDisplay = document.getElementById('character-display');
+        const characterDisplay = document.getElementById('character-reveal');
         if (character.isBlind) {
             characterDisplay.innerHTML = `
                 <div class="blind-placeholder-large">🎭</div>
-                <h2>${character.animeName}</h2>
-                <p class="blind-mode-text">Personaje oculto (se revelará al final)</p>
+                <h3 id="anime-name">${character.animeName}</h3>
+                <p class="blind-mode-text" id="blind-mode-msg">Personaje oculto (se revelará al final)</p>
             `;
         } else {
             characterDisplay.innerHTML = `
-                <img src="${character.imageUrl}" alt="${character.characterName}">
-                <h2>${character.characterName}</h2>
-                <p>${character.animeName}</p>
+                <img src="${character.imageUrl}" alt="${character.characterName}" style="max-width: 200px; max-height: 200px; border-radius: 8px;">
+                <h3 id="anime-name">${character.animeName}</h3>
+                <p>${character.characterName}</p>
             `;
         }
 
@@ -133,33 +173,90 @@ class PlayerView {
         document.getElementById('current-bid').textContent = this.client.formatCurrency(0);
         document.getElementById('current-bidder').textContent = 'Nadie';
         
-        // Enable bidding
-        document.getElementById('bid-amount').disabled = false;
-        document.getElementById('btn-bid').disabled = false;
-        document.getElementById('btn-pass').disabled = false;
+        // Disable bidding initially
+        document.getElementById('btn-bid').disabled = true;
+        document.getElementById('btn-pass').disabled = true;
+        document.getElementById('bid-amount').disabled = true;
+        document.getElementById('bidding-status').innerHTML = '';
+        
+        // Hide config controls initially
+        const configInputs = document.querySelectorAll('.config-panel input, .config-panel select');
+        configInputs.forEach(input => input.disabled = true);
         
         // Start timer
         this.startRoundTimer(data.timeLimit);
     }
 
-    startRoundTimer(seconds) {
-        if (this.timerInterval) {
-            clearInterval(this.timerInterval);
+    onTimerUpdate(data) {
+        const timerDisplay = document.getElementById('timer');
+        if (timerDisplay) {
+            timerDisplay.textContent = data.timeLeft;
+        }
+    }
+
+    onRequestCharacterSelection(data) {
+        this.client.showScreen('player-selection-screen');
+        document.getElementById('player-selection-blind').checked = false;
+        document.getElementById('player-anilist-search').value = '';
+        document.getElementById('player-search-results').innerHTML = '';
+    }
+
+    async searchCharactersForSelection() {
+        const query = document.getElementById('player-anilist-search').value.trim();
+        if (!query) return;
+
+        const resultsContainer = document.getElementById('player-search-results');
+        resultsContainer.innerHTML = '<p>Buscando...</p>';
+
+        const result = await this.client.searchAniList(query, [], 'all');
+        this.currentAnimeName = result.animeTitle || query;
+        
+        resultsContainer.innerHTML = '';
+        
+        if (result.characters.length === 0) {
+            resultsContainer.innerHTML = '<p>No se encontraron resultados</p>';
+            return;
         }
 
-        let timeLeft = seconds;
+        result.characters.forEach(char => {
+            const item = document.createElement('div');
+            item.className = 'search-item';
+            item.innerHTML = `
+                <img src="${char.image.large}" alt="${char.name.full}">
+                <div class="search-item-info">
+                    <h4>${char.name.full}</h4>
+                    <p>${char.gender || 'Género desconocido'}</p>
+                </div>
+            `;
+            item.addEventListener('click', () => {
+                const isBlind = document.getElementById('player-selection-blind').checked;
+                const normalizedChar = {
+                    id: char.id,
+                    characterName: char.characterName || char.name?.full || 'Unknown',
+                    imageUrl: char.imageUrl || char.image?.large || '',
+                    animeName: char.animeName || this.currentAnimeName || 'Unknown',
+                    isBlind: isBlind
+                };
+                
+                // Send selected character to host
+                if (this.client.room) {
+                    this.client.send('characterSelected', { character: normalizedChar });
+                }
+                
+                // Show game screen again
+                this.client.showScreen('game-screen');
+                document.getElementById('character-reveal').innerHTML = `<h3>Esperando a que inicie la subasta...</h3>`;
+            });
+            resultsContainer.appendChild(item);
+        });
+    }
+
+    startRoundTimer(seconds) {
+        // Timer is now fully controlled by the host via timerUpdate events
         const timerDisplay = document.getElementById('timer');
-        timerDisplay.textContent = timeLeft;
-
-        this.timerInterval = setInterval(() => {
-            timeLeft--;
-            timerDisplay.textContent = timeLeft;
-
-            if (timeLeft <= 0) {
-                clearInterval(this.timerInterval);
-                // Timer ended - host will resolve the round
-            }
-        }, 1000);
+        if (timerDisplay) {
+            timerDisplay.textContent = seconds;
+        }
     }
 
     onBidUpdate(data) {
@@ -211,6 +308,15 @@ class PlayerView {
         
         document.getElementById('result-bid').textContent = `Puja: ${this.client.formatCurrency(data.winningBid)}`;
 
+        // Sync local stats
+        if (data.balances && data.balances[this.client.playerId] !== undefined) {
+            document.getElementById('player-balance').textContent = this.client.formatCurrency(data.balances[this.client.playerId]);
+        }
+        if (data.collections && data.collections[this.client.playerId] !== undefined) {
+            const maxWaifus = document.getElementById('config-enableMaxWaifus').checked ? document.getElementById('config-maxWaifus').value : '∞';
+            document.getElementById('player-collection').textContent = `${data.collections[this.client.playerId].length}/${maxWaifus}`;
+        }
+
         // Countdown for next round
         let countdown = 3;
         const countdownEl = document.getElementById('next-round-countdown');
@@ -222,8 +328,7 @@ class PlayerView {
             
             if (countdown <= 0) {
                 clearInterval(countdownInterval);
-                // Return to game screen for next round
-                this.client.showScreen('game-screen');
+                // Transition will be handled by the next onRoundStart or onGameEnd event from the host
             }
         }, 1000);
     }
