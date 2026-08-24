@@ -17,6 +17,12 @@ class WaifuAuctionClient {
             
             this.socket.on('connect', () => {
                 console.log('Connected to server');
+                
+                // If host, emit host:join event
+                if (this.isHost) {
+                    console.log('Emitting host:join');
+                    this.socket.emit('host:join');
+                }
             });
 
             this.socket.on('disconnect', () => {
