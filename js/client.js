@@ -36,68 +36,94 @@ class WaifuAuctionClient {
     }
 
     setupRoomEvents() {
-        // Peer join/leave
-        this.room.onPeerJoin((peerId) => {
+        // Peer join/leave - these are properties, not functions
+        this.room.onPeerJoin = (peerId) => {
             console.log('Peer joined:', peerId);
-        });
+        };
 
-        this.room.onPeerLeave((peerId) => {
+        this.room.onPeerLeave = (peerId) => {
             console.log('Peer left:', peerId);
-        });
+        };
 
-        // Generic message handler
-        this.room.onMessage((data, peerId) => {
-            console.log('Message received:', data, 'from:', peerId);
-            
-            if (data.type === 'playerJoined') {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onPlayerJoined(data.payload);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onPlayerJoined(data.payload);
-                }
-            } else if (data.type === 'lobbyUpdate') {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onLobbyUpdate(data.payload);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onLobbyUpdate(data.payload);
-                }
-            } else if (data.type === 'gameStart') {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onGameStart(data.payload);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onGameStart(data.payload);
-                }
-            } else if (data.type === 'roundStart') {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onRoundStart(data.payload);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onRoundStart(data.payload);
-                }
-            } else if (data.type === 'bidUpdate') {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onBidUpdate(data.payload);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onBidUpdate(data.payload);
-                }
-            } else if (data.type === 'roundResult') {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onRoundResult(data.payload);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onRoundResult(data.payload);
-                }
-            } else if (data.type === 'gameEnd') {
-                if (this.isHost && this.hostView) {
-                    this.hostView.onGameEnd(data.payload);
-                } else if (!this.isHost && this.playerView) {
-                    this.playerView.onGameEnd(data.payload);
-                }
+        // Create actions for different message types
+        this.actions = {
+            playerJoined: this.room.makeAction('playerJoined'),
+            lobbyUpdate: this.room.makeAction('lobbyUpdate'),
+            gameStart: this.room.makeAction('gameStart'),
+            roundStart: this.room.makeAction('roundStart'),
+            bidUpdate: this.room.makeAction('bidUpdate'),
+            roundResult: this.room.makeAction('roundResult'),
+            gameEnd: this.room.makeAction('gameEnd')
+        };
+
+        // Set up message handlers for each action
+        this.actions.playerJoined.onMessage = (data, {peerId}) => {
+            console.log('playerJoined:', data, 'from:', peerId);
+            if (this.isHost && this.hostView) {
+                this.hostView.onPlayerJoined(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onPlayerJoined(data);
             }
-        });
+        };
+
+        this.actions.lobbyUpdate.onMessage = (data, {peerId}) => {
+            console.log('lobbyUpdate:', data, 'from:', peerId);
+            if (this.isHost && this.hostView) {
+                this.hostView.onLobbyUpdate(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onLobbyUpdate(data);
+            }
+        };
+
+        this.actions.gameStart.onMessage = (data, {peerId}) => {
+            console.log('gameStart:', data, 'from:', peerId);
+            if (this.isHost && this.hostView) {
+                this.hostView.onGameStart(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onGameStart(data);
+            }
+        };
+
+        this.actions.roundStart.onMessage = (data, {peerId}) => {
+            console.log('roundStart:', data, 'from:', peerId);
+            if (this.isHost && this.hostView) {
+                this.hostView.onRoundStart(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onRoundStart(data);
+            }
+        };
+
+        this.actions.bidUpdate.onMessage = (data, {peerId}) => {
+            console.log('bidUpdate:', data, 'from:', peerId);
+            if (this.isHost && this.hostView) {
+                this.hostView.onBidUpdate(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onBidUpdate(data);
+            }
+        };
+
+        this.actions.roundResult.onMessage = (data, {peerId}) => {
+            console.log('roundResult:', data, 'from:', peerId);
+            if (this.isHost && this.hostView) {
+                this.hostView.onRoundResult(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onRoundResult(data);
+            }
+        };
+
+        this.actions.gameEnd.onMessage = (data, {peerId}) => {
+            console.log('gameEnd:', data, 'from:', peerId);
+            if (this.isHost && this.hostView) {
+                this.hostView.onGameEnd(data);
+            } else if (!this.isHost && this.playerView) {
+                this.playerView.onGameEnd(data);
+            }
+        };
     }
 
-    send(type, payload) {
-        if (this.room) {
-            this.room.send({ type, payload });
+    send(actionName, data) {
+        if (this.actions && this.actions[actionName]) {
+            this.actions[actionName].send(data);
         }
     }
 
