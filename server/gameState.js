@@ -1,6 +1,7 @@
 // In-memory game state
 const gameState = {
   phase: 'lobby', // 'lobby' | 'inProgress' | 'voting' | 'ended'
+  roomCode: null, // 4-letter room code
   config: {
     startingBalance: 1000,
     totalRounds: 5,

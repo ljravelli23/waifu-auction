@@ -5,6 +5,12 @@ class PlayerView {
         this.currentBid = 0;
         this.timerInterval = null;
         this.setupEventListeners();
+        
+        // Load cached name if available
+        const cachedName = localStorage.getItem('waifuAuctionPlayerName');
+        if (cachedName) {
+            document.getElementById('player-name').value = cachedName;
+        }
     }
 
     setupEventListeners() {
@@ -28,18 +34,20 @@ class PlayerView {
     }
 
     joinGame() {
-        const nameInput = document.getElementById('player-name');
-        const name = nameInput.value.trim();
+        const roomCode = document.getElementById('room-code').value.trim().toUpperCase();
+        const name = document.getElementById('player-name').value.trim();
 
-        if (!name) {
-            this.showJoinStatus('Por favor ingresa tu nombre', 'error');
+        if (!roomCode) {
+            alert('Por favor ingresa el código de sala');
             return;
         }
 
-        this.client.playerName = name;
-        this.client.connect();
-        
-        this.client.socket.emit('player:join', { name });
+        if (!name) {
+            alert('Por favor ingresa tu nombre');
+            return;
+        }
+
+        this.client.socket.emit('player:join', { name, roomCode });
     }
 
     showJoinStatus(message, type) {
@@ -50,9 +58,16 @@ class PlayerView {
 
     onPlayerJoined(data) {
         if (data.success) {
+            this.client.playerId = data.playerId;
+            this.client.playerName = document.getElementById('player-name').value;
+            
+            // Save name to cache
+            localStorage.setItem('waifuAuctionPlayerName', this.client.playerName);
+            
+            this.showJoinStatus('¡Unido exitosamente! Esperando al anfitrión...', 'success');
             this.client.showScreen('lobby-waiting');
         } else {
-            this.showJoinStatus(data.error || 'Error al unirse', 'error');
+            this.showJoinStatus(`Error: ${data.error}`, 'error');
         }
     }
 

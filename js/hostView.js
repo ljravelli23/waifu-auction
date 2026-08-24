@@ -13,6 +13,7 @@ class HostView {
         document.getElementById('btn-host').addEventListener('click', () => {
             this.client.isHost = true;
             this.client.connect();
+            this.client.socket.emit('host:join');
             this.client.showScreen('host-setup');
         });
 
@@ -75,7 +76,9 @@ class HostView {
 
     updateConfig(newConfig) {
         this.config = { ...this.config, ...newConfig };
-        this.client.socket.emit('host:updateConfig', this.config);
+        if (this.client.socket) {
+            this.client.socket.emit('host:updateConfig', this.config);
+        }
     }
 
     async searchCharacters() {
@@ -165,16 +168,20 @@ class HostView {
     addToPool(character) {
         // Check if already in pool
         if (this.client.selectedPool.find(c => c.id === character.id)) {
+            alert('Este personaje ya está en el pool');
             return;
         }
 
-        this.client.selectedPool.push({
-            id: character.id.toString(),
-            characterName: character.name.full,
-            imageUrl: character.image.large,
-            animeName: this.currentAnimeName || 'Anime'
-        });
+        // Normalize character structure
+        const normalizedChar = {
+            id: character.id,
+            characterName: character.characterName || character.name?.full || 'Unknown',
+            imageUrl: character.imageUrl || character.image?.large || '',
+            animeName: character.animeName || this.currentAnimeName || 'Unknown',
+            isBlind: character.isBlind || false
+        };
 
+        this.client.selectedPool.push(normalizedChar);
         this.updatePoolDisplay();
         this.client.socket.emit('host:setPool', { 
             characters: this.client.selectedPool 
@@ -265,6 +272,12 @@ class HostView {
     // Override client methods
     onLobbyUpdate(data) {
         this.updateLobbyDisplay(data.players);
+    }
+
+    onHostJoined(data) {
+        if (data.success && data.roomCode) {
+            document.getElementById('room-code-display').textContent = data.roomCode;
+        }
     }
 
     onGameStart(data) {

@@ -122,6 +122,11 @@
 
                 <div class="lobby-section">
                     <h2>Lobby</h2>
+                    <div class="form-group">
+                        <label>Código de Sala:</label>
+                        <div id="room-code-display" style="font-size: 2em; font-weight: bold; color: #667eea; text-align: center; padding: 10px; background: #f8f9fa; border-radius: 10px;">---</div>
+                        <p style="font-size: 0.9em; color: #666; text-align: center; margin-top: 5px;">Comparte este código con los jugadores</p>
+                    </div>
                     <div id="lobby-players" class="player-list"></div>
                     <button id="btn-start-game" class="btn btn-primary" disabled>Iniciar Partida</button>
                 </div>
@@ -132,6 +137,10 @@
         <div id="player-join" class="screen hidden">
             <div class="container">
                 <h1>🎮 Unirse a Partida</h1>
+                <div class="form-group">
+                    <label>Código de Sala:</label>
+                    <input type="text" id="room-code" placeholder="Código de 4 letras" maxlength="4" style="text-transform: uppercase;">
+                </div>
                 <div class="form-group">
                     <label>Tu Nombre:</label>
                     <input type="text" id="player-name" placeholder="Ingresa tu nombre" maxlength="20">
@@ -251,7 +260,7 @@
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="js/client.js"></script>
     <script src="js/hostView.js"></script>
     <script src="js/playerView.js"></script>

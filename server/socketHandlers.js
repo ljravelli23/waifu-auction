@@ -6,7 +6,18 @@ function setupSocketHandlers(io) {
     console.log('Client connected:', socket.id);
 
     // Player joins lobby
-    socket.on('player:join', ({ name }) => {
+    socket.on('player:join', ({ name, roomCode }) => {
+      if (gameState.phase !== 'lobby') {
+        socket.emit('error', { message: 'Game already in progress' });
+        return;
+      }
+
+      // Validate room code
+      if (!gameLogic.validateRoomCode(roomCode)) {
+        socket.emit('player:joined', { success: false, error: 'Invalid room code' });
+        return;
+      }
+
       const success = gameLogic.addPlayer(socket.id, name);
       
       if (success) {
@@ -92,10 +103,26 @@ function setupSocketHandlers(io) {
         }, 3000);
       } else {
         // Game ended, go to voting
-        gameState = require('./gameState');
         gameState.phase = 'ended';
         io.emit('game:readyForVoting', { state: gameLogic.getGameState() });
       }
+    });
+
+    // Host joins
+    socket.on('host:join', () => {
+      if (gameState.phase !== 'lobby') {
+        socket.emit('error', { message: 'Game already in progress' });
+        return;
+      }
+
+      // Reset game state for new host
+      gameLogic.resetGame();
+      
+      // Generate room code
+      const roomCode = gameLogic.generateRoomCode();
+      gameLogic.setRoomCode(roomCode);
+      
+      socket.emit('host:joined', { success: true, roomCode });
     });
 
     // Host starts voting

@@ -287,6 +287,28 @@ function resetGame() {
   };
   gameState.hostParticipating = false;
   gameState.hostPlayerId = null;
+  gameState.roomCode = null;
+}
+
+function generateRoomCode() {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let code = '';
+  for (let i = 0; i < 4; i++) {
+    code += letters.charAt(Math.floor(Math.random() * letters.length));
+  }
+  return code;
+}
+
+function setRoomCode(code) {
+  gameState.roomCode = code;
+}
+
+function getRoomCode() {
+  return gameState.roomCode;
+}
+
+function validateRoomCode(code) {
+  return gameState.roomCode === code.toUpperCase();
 }
 
 function setHostParticipating(participating) {
@@ -310,5 +332,9 @@ module.exports = {
   calculateVotingResults,
   getGameState,
   resetGame,
-  setHostParticipating
+  setHostParticipating,
+  generateRoomCode,
+  setRoomCode,
+  getRoomCode,
+  validateRoomCode
 };

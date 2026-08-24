@@ -7,6 +7,8 @@ class WaifuAuctionClient {
         this.isHost = false;
         this.gameState = null;
         this.selectedPool = [];
+        this.hostView = null;
+        this.playerView = null;
     }
 
     connect() {
@@ -21,67 +23,107 @@ class WaifuAuctionClient {
                 console.log('Disconnected from server');
             });
 
-            this.socket.on('player:joined', (data) => {
-                if (data.success) {
-                    this.playerId = data.playerId;
-                    this.onPlayerJoined(data);
-                } else {
-                    this.onJoinError(data);
+            this.socket.on('error', (data) => {
+                console.error('Server error:', data.message);
+                alert(data.message);
+            });
+
+            // Host events
+            this.socket.on('host:joined', (data) => {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onHostJoined(data);
                 }
             });
 
+            // Game events
             this.socket.on('lobby:update', (data) => {
-                this.onLobbyUpdate(data);
+                if (this.isHost && this.hostView) {
+                    this.hostView.onLobbyUpdate(data);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onLobbyUpdate(data);
+                }
             });
 
             this.socket.on('game:start', (data) => {
-                this.gameState = data.state;
-                this.onGameStart(data);
+                if (this.isHost && this.hostView) {
+                    this.hostView.onGameStart(data);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onGameStart(data);
+                }
             });
 
             this.socket.on('round:start', (data) => {
-                this.onRoundStart(data);
+                if (this.isHost && this.hostView) {
+                    this.hostView.onRoundStart(data);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onRoundStart(data);
+                }
             });
 
-            this.socket.on('round:bidUpdate', (data) => {
-                this.onBidUpdate(data);
+            this.socket.on('bid:update', (data) => {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onBidUpdate(data);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onBidUpdate(data);
+                }
             });
 
             this.socket.on('round:result', (data) => {
-                this.onRoundResult(data);
-            });
-
-            this.socket.on('bid:rejected', (data) => {
-                this.onBidRejected(data);
-            });
-
-            this.socket.on('player:passed', (data) => {
-                this.onPlayerPassed(data);
-            });
-
-            this.socket.on('game:readyForVoting', (data) => {
-                this.gameState = data.state;
-                this.onReadyForVoting(data);
+                if (this.isHost && this.hostView) {
+                    this.hostView.onRoundResult(data);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onRoundResult(data);
+                }
             });
 
             this.socket.on('voting:start', (data) => {
-                this.onVotingStart(data);
+                if (this.isHost && this.hostView) {
+                    this.hostView.onVotingStart(data);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onVotingStart(data);
+                }
             });
 
-            this.socket.on('voting:result', (data) => {
-                this.onVotingResult(data);
+            this.socket.on('voting:end', (data) => {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onVotingEnd(data);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onVotingEnd(data);
+                }
             });
 
             this.socket.on('game:end', (data) => {
-                this.onGameEnd(data);
+                if (this.isHost && this.hostView) {
+                    this.hostView.onGameEnd(data);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onGameEnd(data);
+                }
+            });
+
+            this.socket.on('game:readyForVoting', (data) => {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onReadyForVoting(data);
+                }
+            });
+
+            this.socket.on('player:joined', (data) => {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onPlayerJoined(data);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onPlayerJoined(data);
+                }
             });
 
             this.socket.on('config:updated', (data) => {
-                this.onConfigUpdated(data);
+                if (this.isHost && this.hostView) {
+                    this.hostView.onConfigUpdated(data);
+                }
             });
 
             this.socket.on('pool:updated', (data) => {
-                this.onPoolUpdated(data);
+                if (this.isHost && this.hostView) {
+                    this.hostView.onPoolUpdated(data);
+                }
             });
 
             this.socket.on('player:reconnected', (data) => {
