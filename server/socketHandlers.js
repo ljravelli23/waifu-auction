@@ -110,6 +110,7 @@ function setupSocketHandlers(io) {
 
     // Host joins
     socket.on('host:join', () => {
+      console.log('Host join request received');
       if (gameState.phase !== 'lobby') {
         socket.emit('error', { message: 'Game already in progress' });
         return;
@@ -122,6 +123,7 @@ function setupSocketHandlers(io) {
       const roomCode = gameLogic.generateRoomCode();
       gameLogic.setRoomCode(roomCode);
       
+      console.log('Generated room code:', roomCode);
       socket.emit('host:joined', { success: true, roomCode });
     });
 

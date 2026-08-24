@@ -286,8 +286,15 @@ class HostView {
     }
 
     onHostJoined(data) {
+        console.log('Host joined event received:', data);
         if (data.success && data.roomCode) {
-            document.getElementById('room-code-display').textContent = data.roomCode;
+            const display = document.getElementById('room-code-display');
+            if (display) {
+                display.textContent = data.roomCode;
+                console.log('Room code displayed:', data.roomCode);
+            } else {
+                console.error('Room code display element not found');
+            }
         }
     }
 
