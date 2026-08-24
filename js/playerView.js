@@ -14,8 +14,9 @@ class PlayerView {
     }
 
     setupEventListeners() {
-        // Role selection
+        // Player button - switches to join screen
         document.getElementById('btn-player').addEventListener('click', () => {
+            console.log('Player button clicked');
             this.client.isHost = false;
             this.client.showScreen('player-join');
         });

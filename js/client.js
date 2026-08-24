@@ -14,11 +14,19 @@ class WaifuAuctionClient {
     }
 
     connect(roomCode = null) {
+        // Guard against double connections
+        if (this.room) {
+            console.warn('Already connected to a room, ignoring duplicate connect call');
+            return;
+        }
+
         try {
             const code = roomCode || this.generateRoomCode();
             this.roomCode = code;
             
             console.log('Joining room:', code);
+            this.updateConnectionStatus('connecting', 'Conectando...');
+            
             this.room = window.Tristero.joinRoom({ appId: this.APP_ID }, code);
             
             console.log('Room object:', this.room);
@@ -27,6 +35,7 @@ class WaifuAuctionClient {
             // Wait a bit for room to be ready
             setTimeout(() => {
                 this.setupRoomEvents();
+                this.updateConnectionStatus('connected', 'Conectado');
                 
                 if (this.isHost) {
                     console.log('Host initialized with room code:', code);
@@ -40,7 +49,52 @@ class WaifuAuctionClient {
             }, 100);
         } catch (error) {
             console.error('Error connecting to room:', error);
+            this.updateConnectionStatus('error', 'Error de conexión');
             alert('Error connecting to room: ' + error.message);
+        }
+    }
+
+    updateConnectionStatus(status, message) {
+        // Create or update a status indicator in the UI
+        let indicator = document.getElementById('connection-status');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'connection-status';
+            indicator.style.cssText = `
+                position: fixed;
+                bottom: 16px;
+                right: 16px;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 0.85em;
+                font-weight: 500;
+                z-index: 9999;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            `;
+            document.body.appendChild(indicator);
+        }
+
+        indicator.textContent = message;
+        
+        switch (status) {
+            case 'connecting':
+                indicator.style.background = '#fff3cd';
+                indicator.style.color = '#856404';
+                break;
+            case 'connected':
+                indicator.style.background = '#d4edda';
+                indicator.style.color = '#155724';
+                // Auto-hide after 3 seconds
+                setTimeout(() => {
+                    indicator.style.opacity = '0';
+                    setTimeout(() => indicator.remove(), 300);
+                }, 3000);
+                break;
+            case 'error':
+                indicator.style.background = '#f8d7da';
+                indicator.style.color = '#721c24';
+                break;
         }
     }
 

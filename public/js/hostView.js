@@ -28,8 +28,9 @@ class HostView {
     }
 
     setupEventListeners() {
-        // Role selection
+        // Host button - sets up host mode and connects
         document.getElementById('btn-host').addEventListener('click', () => {
+            console.log('Host button clicked');
             this.client.isHost = true;
             this.client.connect();
             this.client.showScreen('host-setup');
@@ -475,7 +476,7 @@ class HostView {
         resolveBtn.className = 'btn btn-primary';
         resolveBtn.textContent = 'Finalizar Ronda';
         resolveBtn.addEventListener('click', () => {
-            this.client.socket.emit('host:resolveRound');
+            this.resolveRound();
         });
         biddingControls.appendChild(resolveBtn);
         
@@ -610,7 +611,7 @@ class HostView {
             if (timeLeft <= 0) {
                 clearInterval(this.hostTimerInterval);
                 // Auto-resolve round when timer ends
-                this.client.socket.emit('host:resolveRound');
+                this.resolveRound();
             }
         }, 1000);
     }
@@ -744,7 +745,11 @@ class HostView {
 
         modal.querySelectorAll('.voting-mode-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                this.client.socket.emit('host:startVoting', { mode: btn.dataset.mode });
+                // Start voting with the selected mode
+                console.log('Starting voting with mode:', btn.dataset.mode);
+                if (this.client.room) {
+                    this.client.send('votingStart', { mode: btn.dataset.mode });
+                }
                 document.body.removeChild(modal);
             });
         });
@@ -800,7 +805,7 @@ class HostView {
         });
 
         document.getElementById('btn-final-results').addEventListener('click', () => {
-            this.client.socket.emit('host:endGame');
+            this.endGame();
         });
     }
 

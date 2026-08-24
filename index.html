@@ -261,34 +261,12 @@
     </div>
 
     <script type="module">
-        import { joinRoom } from 'https://esm.run/trystero';
+        import { joinRoom } from 'https://esm.sh/@trystero-p2p/mqtt';
         window.Tristero = { joinRoom };
+        console.log('Trystero MQTT strategy loaded');
     </script>
     <script src="js/client.js"></script>
     <script src="js/hostView.js"></script>
     <script src="js/playerView.js"></script>
-    <script>
-        // Simple role selection
-        document.getElementById('btn-host').addEventListener('click', function() {
-            console.log('Host button clicked');
-            if (typeof client !== 'undefined') {
-                client.isHost = true;
-                client.connect();
-                client.showScreen('host-setup');
-            } else {
-                console.error('Client not defined');
-            }
-        });
-
-        document.getElementById('btn-player').addEventListener('click', function() {
-            console.log('Player button clicked');
-            if (typeof client !== 'undefined') {
-                client.isHost = false;
-                client.showScreen('player-join');
-            } else {
-                console.error('Client not defined');
-            }
-        });
-    </script>
 </body>
 </html>
