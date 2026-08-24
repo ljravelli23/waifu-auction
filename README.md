@@ -5,8 +5,12 @@ Juego multijugador en tiempo real donde un anfitrión organiza una subasta de pe
 ## Características
 
 - **Sin servidor externo**: Corre 100% desde la laptop del anfitrión
-- **Túnel a internet**: Usa ngrok o Cloudflare para compartir con amigos
+- **Túnel a internet**: Usa cloudflared para compartir con amigos (sin cuenta requerida)
 - **Búsqueda en AniList**: Busca anime y personajes directamente desde la API
+- **Filtros de géneros**: Filtra por géneros de anime (Acción, Romance, Fantasía, etc.)
+- **Filtro de género de personaje**: Solo waifus, solo hombres, o todos
+- **Modo aleatorio**: Genera personajes aleatorios basados en filtros seleccionados
+- **Participación del anfitrión**: El anfitrión puede optar por participar como jugador
 - **Modos de puja**: Libre o por turnos
 - **Compra a ciegas**: Solo se revela el nombre del anime durante la puja
 - **Sistema de votación**: Múltiples modos para elegir la "mejor compra"
@@ -24,6 +28,32 @@ Juego multijugador en tiempo real donde un anfitrión organiza una subasta de pe
 ```bash
 npm install
 ```
+
+## Subir a GitHub
+
+Para subir el proyecto a GitHub:
+
+1. Crear un nuevo repositorio en [GitHub.com](https://github.com/new)
+2. Copiar la URL del repositorio (ej: `https://github.com/tu-usuario/waifu-auction.git`)
+3. En tu terminal local, ejecutar:
+```bash
+git remote add origin https://github.com/tu-usuario/waifu-auction.git
+git branch -M main
+git push -u origin main
+```
+
+## GitHub Pages (Showcase)
+
+**Nota importante:** GitHub Pages solo aloja sitios estáticos. Este juego requiere un servidor Node.js con Socket.IO, por lo que GitHub Pages solo servirá como showcase del frontend (no será funcional para jugar).
+
+Para activar GitHub Pages:
+1. Ve a tu repositorio en GitHub
+2. Settings > Pages
+3. Source: Deploy from a branch
+4. Branch: main, folder: / (root)
+5. Save
+
+El sitio estará disponible en `https://tu-usuario.github.io/waifu-auction/`
 
 ## Cómo Correr
 
