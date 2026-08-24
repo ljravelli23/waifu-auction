@@ -45,6 +45,13 @@ class WaifuAuctionClient {
                     } else {
                         console.error('hostView is not defined!');
                     }
+                } else {
+                    console.log('Player initialized with room code:', code);
+                    if (this.playerView) {
+                        this.playerView.onPlayerJoined({ success: true, roomCode: code });
+                    } else {
+                        console.error('playerView is not defined!');
+                    }
                 }
             }, 100);
         } catch (error) {
