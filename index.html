@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subasta de Waifus - Juego Multijugador</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Pantalla de inicio -->
+        <div id="start-screen" class="screen">
+            <h1>🎭 Subasta de Waifus</h1>
+            <p>Juego multijugador de subasta de personajes de anime</p>
+            
+            <div class="input-group">
+                <input type="text" id="player-name" placeholder="Tu nombre" maxlength="20">
+            </div>
+            
+            <div class="button-group">
+                <button id="btn-create-room" class="btn-primary">Crear Sala (Anfitrión)</button>
+                <button id="btn-join-room" class="btn-secondary">Unirse a Sala</button>
+            </div>
+            
+            <div id="join-section" class="hidden">
+                <div class="input-group">
+                    <input type="text" id="room-code" placeholder="Código de sala (4 letras)" maxlength="4" style="text-transform: uppercase;">
+                </div>
+                <button id="btn-join-submit" class="btn-primary">Unirse</button>
+            </div>
+            
+            <button id="btn-edit-avatar" class="btn-secondary">Editar Avatar</button>
+        </div>
+
+        <!-- Creador de Avatar -->
+        <div id="avatar-creator" class="screen hidden">
+            <h2>Crear tu Avatar</h2>
+            <div class="avatar-preview">
+                <canvas id="avatar-canvas" width="200" height="200"></canvas>
+            </div>
+            
+            <div class="avatar-controls">
+                <div class="control-group">
+                    <label>Forma de cara:</label>
+                    <select id="face-shape">
+                        <option value="0">Redonda</option>
+                        <option value="1">Ovalada</option>
+                        <option value="2">Cuadrada</option>
+                        <option value="3">Corazón</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Tono de piel:</label>
+                    <select id="skin-tone">
+                        <option value="#ffe0bd">Claro</option>
+                        <option value="#ffcd94">Medio claro</option>
+                        <option value="#eac086">Medio</option>
+                        <option value="#d2a679">Medio oscuro</option>
+                        <option value="#a67c52">Oscuro</option>
+                        <option value="#8b5a2b">Muy oscuro</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Ojos:</label>
+                    <select id="eye-style">
+                        <option value="0">Normales</option>
+                        <option value="1">Grandes</option>
+                        <option value="2">Almendrados</option>
+                        <option value="3">Redondos</option>
+                        <option value="4">Cansados</option>
+                        <option value="5">Felices</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Color de ojos:</label>
+                    <input type="color" id="eye-color" value="#5e3818">
+                </div>
+                
+                <div class="control-group">
+                    <label>Cejas:</label>
+                    <select id="eyebrow-style">
+                        <option value="0">Normales</option>
+                        <option value="1">Gruesas</option>
+                        <option value="2">Delgadas</option>
+                        <option value="3">Altas</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Nariz:</label>
+                    <select id="nose-style">
+                        <option value="0">Pequeña</option>
+                        <option value="1">Mediana</option>
+                        <option value="2">Grande</option>
+                        <option value="3">Puntiaguda</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Boca:</label>
+                    <select id="mouth-style">
+                        <option value="0">Sonrisa</option>
+                        <option value="1">Neutral</option>
+                        <option value="2">Seria</option>
+                        <option value="3">Abierta</option>
+                        <option value="4">Grisa</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Peinado:</label>
+                    <select id="hair-style">
+                        <option value="0">Corto</option>
+                        <option value="1">Medio</option>
+                        <option value="2">Largo</option>
+                        <option value="3">Mochila</option>
+                        <option value="4">Punk</option>
+                        <option value="5">Ondulado</option>
+                        <option value="6">Calvo</option>
+                        <option value="7">Coleta</option>
+                        <option value="8">Afro</option>
+                        <option value="9">Rapado</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Color de cabello:</label>
+                    <input type="color" id="hair-color" value="#3a2a1a">
+                </div>
+                
+                <div class="control-group">
+                    <label>Accesorio:</label>
+                    <select id="accessory">
+                        <option value="none">Ninguno</option>
+                        <option value="glasses">Lentes</option>
+                        <option value="hat">Gorra</option>
+                        <option value="headphones">Audífonos</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button id="btn-save-avatar" class="btn-primary">Guardar Avatar</button>
+                <button id="btn-cancel-avatar" class="btn-secondary">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Lobby -->
+        <div id="lobby-screen" class="screen hidden">
+            <h2>Lobby</h2>
+            
+            <div id="room-info" class="room-info">
+                <p>Código de sala: <span id="display-room-code" class="room-code">----</span></p>
+                <p id="host-info" class="hidden">Eres el anfitrión</p>
+            </div>
+            
+            <div class="player-list">
+                <h3>Jugadores conectados:</h3>
+                <ul id="players-list"></ul>
+            </div>
+            
+            <div id="host-controls" class="host-controls hidden">
+                <button id="btn-configure-game" class="btn-primary">Configurar Partida</button>
+                <button id="btn-start-game" class="btn-primary" disabled>Iniciar Juego</button>
+            </div>
+            
+            <div class="voice-controls">
+                <button id="btn-mute" class="btn-secondary">🎤 Silenciar</button>
+                <p id="voice-status">Voz activa</p>
+            </div>
+            
+            <button id="btn-leave-room" class="btn-danger">Salir de la Sala</button>
+        </div>
+
+        <!-- Configuración de Partida -->
+        <div id="config-screen" class="screen hidden">
+            <h2>Configuración de Partida</h2>
+            
+            <div class="config-form">
+                <div class="form-group">
+                    <label>Modo de juego:</label>
+                    <select id="game-mode">
+                        <option value="choice">Elección</option>
+                        <option value="random">Aleatorio</option>
+                        <option value="blind">A ciegas</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Saldo inicial:</label>
+                    <input type="number" id="initial-money" value="1000" min="100" max="10000">
+                </div>
+                
+                <div class="form-group">
+                    <label>Máximo de rondas:</label>
+                    <input type="number" id="max-rounds" value="10" min="1" max="50">
+                    <label><input type="checkbox" id="unlimited-rounds"> Sin límite</label>
+                </div>
+                
+                <div class="form-group">
+                    <label>Máximo de waifus por jugador:</label>
+                    <input type="number" id="max-waifus" value="5" min="1" max="20">
+                    <label><input type="checkbox" id="unlimited-waifus"> Sin límite</label>
+                </div>
+                
+                <div class="form-group">
+                    <label>Modo de puja:</label>
+                    <select id="bid-mode">
+                        <option value="free">Libre</option>
+                        <option value="turns">Por turnos</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Máximo de jugadores:</label>
+                    <input type="number" id="max-players" value="8" min="2" max="20">
+                </div>
+                
+                <div class="form-group">
+                    <label><input type="checkbox" id="show-rounds" checked> Mostrar cantidad de rondas a los jugadores</label>
+                </div>
+                
+                <div class="form-group">
+                    <label>Tiempo de espera sin pujas (segundos):</label>
+                    <input type="number" id="no-bid-timeout" value="15" min="5" max="60">
+                </div>
+                
+                <div class="form-group">
+                    <label>Modo de votación final:</label>
+                    <select id="vote-mode">
+                        <option value="price">Por precio</option>
+                        <option value="onebyone">Uno por uno</option>
+                        <option value="round">Por ronda</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button id="btn-save-config" class="btn-primary">Guardar Configuración</button>
+                <button id="btn-cancel-config" class="btn-secondary">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Selección de Personajes -->
+        <div id="character-selection" class="screen hidden">
+            <h2>Seleccionar Personajes para el Pool</h2>
+            
+            <div class="search-section">
+                <input type="text" id="anime-search" placeholder="Buscar anime...">
+                <button id="btn-search-anime" class="btn-primary">Buscar</button>
+            </div>
+            
+            <div id="search-results" class="search-results">
+                <p>Busca un anime para ver sus personajes</p>
+            </div>
+            
+            <div class="pool-section">
+                <h3>Pool de personajes (<span id="pool-count">0</span>):</h3>
+                <div id="character-pool" class="character-pool"></div>
+            </div>
+            
+            <div class="button-group">
+                <button id="btn-confirm-pool" class="btn-primary" disabled>Confirmar Pool</button>
+                <button id="btn-cancel-pool" class="btn-secondary">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Sala de Subasta 3D -->
+        <div id="auction-room" class="screen hidden">
+            <div id="three-container"></div>
+            
+            <!-- HUD Overlay -->
+            <div id="hud" class="hud">
+                <div class="hud-top">
+                    <div class="player-info">
+                        <span id="hud-name">Jugador</span>
+                        <span id="hud-money">$1000</span>
+                    </div>
+                    <div class="round-info">
+                        <span id="hud-round">Ronda 1/10</span>
+                    </div>
+                </div>
+                
+                <div class="hud-center">
+                    <div id="current-character" class="character-display">
+                        <img id="character-image" src="" alt="Personaje" class="hidden">
+                        <div id="character-name" class="character-name"></div>
+                        <div id="anime-name" class="anime-name"></div>
+                    </div>
+                    <div id="current-bid" class="current-bid">
+                        <span id="bid-amount">$0</span>
+                        <span id="bid-timer" class="timer"></span>
+                    </div>
+                </div>
+                
+                <div class="hud-bottom">
+                    <div class="bid-controls">
+                        <button class="bid-btn" data-amount="1">+1</button>
+                        <button class="bid-btn" data-amount="5">+5</button>
+                        <button class="bid-btn" data-amount="10">+10</button>
+                        <button class="bid-btn" data-amount="max">MAX</button>
+                        <button class="skip-btn">>> Saltar</button>
+                    </div>
+                    <div class="voice-controls">
+                        <button id="hud-mute" class="btn-secondary">🎤</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla Final -->
+        <div id="end-screen" class="screen hidden">
+            <h2>¡Fin de la Partida!</h2>
+            
+            <div id="final-collections" class="final-collections"></div>
+            
+            <div id="voting-section" class="voting-section hidden">
+                <h3>Votación</h3>
+                <div id="vote-item" class="vote-item"></div>
+                <div id="vote-controls" class="vote-controls"></div>
+            </div>
+            
+            <div id="vote-results" class="vote-results hidden">
+                <h3>Resultados</h3>
+                <div id="results-list"></div>
+            </div>
+            
+            <button id="btn-back-to-start" class="btn-primary">Volver al Inicio</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
