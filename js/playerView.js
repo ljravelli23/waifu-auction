@@ -94,7 +94,7 @@ class PlayerView {
         }
         
         this.showJoinStatus('¡Unido exitosamente! Esperando al anfitrión...', 'success');
-        this.client.showScreen('lobby-waiting');
+        this.client.showScreen('unified-lobby');
     }
 
     onJoinError(data) {
@@ -106,7 +106,7 @@ class PlayerView {
     }
 
     updateWaitingLobby(players) {
-        const waitingPlayers = document.getElementById('waiting-players');
+        const waitingPlayers = document.getElementById('lobby-players');
         waitingPlayers.innerHTML = '';
 
         Object.entries(players).forEach(([id, player]) => {
@@ -173,15 +173,10 @@ class PlayerView {
         document.getElementById('current-bid').textContent = this.client.formatCurrency(0);
         document.getElementById('current-bidder').textContent = 'Nadie';
         
-        // Disable bidding initially
-        document.getElementById('btn-bid').disabled = true;
-        document.getElementById('btn-pass').disabled = true;
-        document.getElementById('bid-amount').disabled = true;
-        document.getElementById('bidding-status').innerHTML = '';
-        
-        // Hide config controls initially
-        const configInputs = document.querySelectorAll('.config-panel input, .config-panel select');
-        configInputs.forEach(input => input.disabled = true);
+        // Enable bidding controls
+        document.getElementById('btn-bid').disabled = false;
+        document.getElementById('btn-pass').disabled = false;
+        document.getElementById('bid-amount').disabled = false;
         
         // Start timer
         this.startRoundTimer(data.timeLimit);

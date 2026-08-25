@@ -45,6 +45,13 @@ class WaifuAuctionClient {
                     } else {
                         console.error('hostView is not defined!');
                     }
+                } else {
+                    console.log('Player initialized with room code:', code);
+                    if (this.playerView) {
+                        this.playerView.onPlayerJoined({ success: true, roomCode: code });
+                    } else {
+                        console.error('playerView is not defined!');
+                    }
                 }
             }, 100);
         } catch (error) {
@@ -116,7 +123,12 @@ class WaifuAuctionClient {
             roundStart: this.room.makeAction('roundStart'),
             bidUpdate: this.room.makeAction('bidUpdate'),
             roundResult: this.room.makeAction('roundResult'),
-            gameEnd: this.room.makeAction('gameEnd')
+            gameEnd: this.room.makeAction('gameEnd'),
+            configUpdated: this.room.makeAction('configUpdated'),
+            poolUpdated: this.room.makeAction('poolUpdated'),
+            timerUpdate: this.room.makeAction('timerUpdate'),
+            requestCharacterSelection: this.room.makeAction('requestCharacterSelection'),
+            characterSelected: this.room.makeAction('characterSelected')
         };
 
         // Set up message handlers for each action
@@ -159,7 +171,7 @@ class WaifuAuctionClient {
         this.actions.bidUpdate.onMessage = (data, {peerId}) => {
             console.log('bidUpdate:', data, 'from:', peerId);
             if (this.isHost && this.hostView) {
-                this.hostView.onBidUpdate(data);
+                this.hostView.handleBid(data);
             } else if (!this.isHost && this.playerView) {
                 this.playerView.onBidUpdate(data);
             }
@@ -180,6 +192,44 @@ class WaifuAuctionClient {
                 this.hostView.onGameEnd(data);
             } else if (!this.isHost && this.playerView) {
                 this.playerView.onGameEnd(data);
+            }
+        };
+
+        this.actions.configUpdated.onMessage = (data, {peerId}) => {
+            console.log('configUpdated:', data, 'from:', peerId);
+            if (!this.isHost && this.playerView) {
+                this.playerView.onConfigUpdated(data);
+            }
+        };
+
+        this.actions.poolUpdated.onMessage = (data, {peerId}) => {
+            console.log('poolUpdated:', data, 'from:', peerId);
+            if (!this.isHost && this.playerView) {
+                this.playerView.onPoolUpdated(data);
+            }
+        };
+
+        this.actions.timerUpdate.onMessage = (data, {peerId}) => {
+            if (!this.isHost && this.playerView) {
+                this.playerView.onTimerUpdate(data);
+            }
+        };
+
+        this.actions.requestCharacterSelection.onMessage = (data, {peerId}) => {
+            console.log('requestCharacterSelection:', data, 'from:', peerId);
+            if (data.targetPlayerId === this.playerId) {
+                if (this.isHost && this.hostView) {
+                    this.hostView.onRequestCharacterSelection(data);
+                } else if (!this.isHost && this.playerView) {
+                    this.playerView.onRequestCharacterSelection(data);
+                }
+            }
+        };
+
+        this.actions.characterSelected.onMessage = (data, {peerId}) => {
+            console.log('characterSelected:', data, 'from:', peerId);
+            if (this.isHost && this.hostView) {
+                this.hostView.onCharacterSelected(data);
             }
         };
     }
@@ -225,13 +275,6 @@ class WaifuAuctionClient {
     onReconnected(data) {}
 
     // Shared utility methods
-    showScreen(screenId) {
-        document.querySelectorAll('.screen').forEach(screen => {
-            screen.classList.add('hidden');
-        });
-        document.getElementById(screenId).classList.remove('hidden');
-    }
-
     formatCurrency(amount) {
         return amount.toLocaleString();
     }

@@ -124,8 +124,11 @@ class HostView {
             });
         }
 
-        // Random characters
-        document.getElementById('btn-random').addEventListener('click', () => this.generateRandomCharacters());
+        // Random characters (button may not exist in current UI)
+        const randomBtn = document.getElementById('btn-random');
+        if (randomBtn) {
+            randomBtn.addEventListener('click', () => this.generateRandomCharacters());
+        }
 
         // Player Selection UI (for when host is chosen)
         const btnPlayerSearch = document.getElementById('btn-player-search');
@@ -682,41 +685,27 @@ class HostView {
     }
 
     setupGameUI() {
-        // Check if host is participating as player
-        const hostParticipating = document.getElementById('config-hostParticipating').checked;
+        // Host always participates in the unified UI
+        document.getElementById('player-name-display').textContent = this.client.playerName || 'Anfitrión';
+        this.updatePlayerInfo();
         
-        if (hostParticipating && this.client.playerId) {
-            // Host is participating - enable player UI
-            const hostName = document.getElementById('host-player-name').value;
-            document.getElementById('player-name-display').textContent = hostName;
-            this.updatePlayerInfo();
-            
-            // Enable bidding controls for participating host
-            document.getElementById('bid-amount').disabled = false;
-            document.getElementById('btn-bid').disabled = false;
-            document.getElementById('btn-pass').disabled = false;
-        } else {
-            // Host monitors the game but doesn't participate
-            document.getElementById('player-name-display').textContent = 'Anfitrión';
-            document.getElementById('player-balance').textContent = '-';
-            document.getElementById('player-collection').textContent = '-';
-            
-            // Disable bidding controls for non-participating host
-            document.getElementById('bid-amount').disabled = true;
-            document.getElementById('btn-bid').disabled = true;
-            document.getElementById('btn-pass').disabled = true;
-        }
+        // Enable bidding controls for host
+        document.getElementById('bid-amount').disabled = false;
+        document.getElementById('btn-bid').disabled = false;
+        document.getElementById('btn-pass').disabled = false;
         
-        // Add host-specific resolve button
+        // Add host-specific resolve button if not already added
         const biddingControls = document.querySelector('.bidding-controls');
-        const resolveBtn = document.createElement('button');
-        resolveBtn.id = 'btn-resolve-round';
-        resolveBtn.className = 'btn btn-primary';
-        resolveBtn.textContent = 'Finalizar Ronda';
-        resolveBtn.addEventListener('click', () => {
-            this.resolveRound();
-        });
-        biddingControls.appendChild(resolveBtn);
+        if (biddingControls && !document.getElementById('btn-resolve-round')) {
+            const resolveBtn = document.createElement('button');
+            resolveBtn.id = 'btn-resolve-round';
+            resolveBtn.className = 'btn btn-primary';
+            resolveBtn.textContent = 'Finalizar Ronda';
+            resolveBtn.addEventListener('click', () => {
+                this.resolveRound();
+            });
+            biddingControls.appendChild(resolveBtn);
+        }
         
         this.setupHostTimer();
     }
@@ -757,8 +746,7 @@ class HostView {
     }
 
     updateBiddingControls() {
-        const hostParticipating = document.getElementById('config-hostParticipating').checked;
-        if (!hostParticipating || !this.client.playerId) return;
+        if (!this.client.playerId) return;
 
         const canBid = this.canPlayerBid();
         document.getElementById('bid-amount').disabled = !canBid;
@@ -854,13 +842,14 @@ class HostView {
         if (data.highestBidderId && this.players && this.players[data.highestBidderId]) {
             const bidderName = this.players[data.highestBidderId].name;
             document.getElementById('current-bidder').textContent = `por ${bidderName}`;
+        } else if (data.playerName) {
+            document.getElementById('current-bidder').textContent = `por ${data.playerName}`;
         } else {
             document.getElementById('current-bidder').textContent = '-';
         }
 
-        // Update host player info if participating
-        const hostParticipating = document.getElementById('config-hostParticipating').checked;
-        if (hostParticipating && this.client.playerId) {
+        // Update host player info
+        if (this.client.playerId) {
             this.updatePlayerInfo();
             this.updateBiddingControls();
         }
@@ -883,13 +872,17 @@ class HostView {
         // Show result screen
         this.client.showScreen('round-result');
         
-        document.getElementById('result-image').src = data.imageUrl;
-        document.getElementById('result-character').textContent = data.characterName;
-        document.getElementById('result-anime').textContent = data.animeName;
+        // Use character data from the result
+        const char = data.character || {};
+        document.getElementById('result-image').src = char.imageUrl || data.imageUrl || '';
+        document.getElementById('result-character').textContent = char.characterName || data.characterName || 'Desconocido';
+        document.getElementById('result-anime').textContent = char.animeName || data.animeName || '';
         
-        if (data.winnerId && this.client.gameState && this.client.gameState.players[data.winnerId]) {
+        if (data.winnerName) {
+            document.getElementById('result-winner').textContent = `Ganado por: ${data.winnerName}`;
+        } else if (data.winnerId && this.players && this.players[data.winnerId]) {
             document.getElementById('result-winner').textContent = 
-                `Ganado por: ${this.client.gameState.players[data.winnerId].name}`;
+                `Ganado por: ${this.players[data.winnerId].name}`;
         } else {
             document.getElementById('result-winner').textContent = 'Sin ganador';
         }
@@ -918,15 +911,17 @@ class HostView {
 
         summaryContainer.innerHTML = '';
 
+        const maxWaifus = this.config.enableMaxWaifus ? this.config.maxWaifus : '∞';
+
         Object.entries(this.players).forEach(([playerId, player]) => {
             const card = document.createElement('div');
             card.className = 'mini-player-card';
             card.innerHTML = `
                 <strong>${player.name}</strong><br>
                 💰 ${this.client.formatCurrency(player.balance)}<br>
-                🎭 ${player.collection.length}/${this.client.gameState.config.maxCharactersPerPlayer}
+                🎭 ${player.collection.length}/${maxWaifus}
             `;
-            playersSummary.appendChild(card);
+            summaryContainer.appendChild(card);
         });
     }
 

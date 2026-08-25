@@ -3,14 +3,13 @@ class HostView {
     constructor(client) {
         this.client = client;
         this.config = {
-            startingBalance: 1000,
-            totalRounds: 5,
-            showRoundCount: true,
-            maxPlayers: 8,
-            maxCharactersPerPlayer: 3,
-            biddingMode: 'free',
-            timePerCharacter: 30,
-            timeoutBehavior: 'skip'
+            gameMode: 'eleccion',
+            enableMaxWaifus: true,
+            maxWaifus: 5,
+            enableMaxRounds: false,
+            maxRounds: 10,
+            startingBalance: 100,
+            biddingMode: 'free'
         };
         this.players = {};
         this.currentRound = {
@@ -29,56 +28,119 @@ class HostView {
 
     setupEventListeners() {
         // Host button - sets up host mode and connects
-        document.getElementById('btn-host').addEventListener('click', () => {
-            console.log('Host button clicked');
-            this.client.isHost = true;
-            this.client.connect();
-            this.client.showScreen('host-setup');
-        });
+        const hostBtn = document.getElementById('btn-host');
+        if (hostBtn) {
+            hostBtn.addEventListener('click', () => {
+                const name = document.getElementById('player-name').value.trim();
+                if (!name) {
+                    alert('Por favor ingresa tu nombre para continuar');
+                    return;
+                }
+                
+                console.log('Host button clicked');
+                this.client.isHost = true;
+                this.client.playerName = name;
+                localStorage.setItem('waifuAuctionPlayerName', name);
+                
+                // Add host to their own players list with full structure
+                this.players[this.client.playerId] = {
+                    name: name,
+                    balance: this.config.startingBalance,
+                    collection: []
+                };
+                
+                this.client.connect();
+                this.client.showScreen('unified-lobby');
+                
+                // Ensure config panel is enabled for host
+                const configInputs = document.querySelectorAll('.config-panel input, .config-panel select');
+                configInputs.forEach(input => input.disabled = false);
+                document.getElementById('btn-start-game').textContent = 'Iniciar Partida';
+                document.getElementById('btn-start-game').disabled = false;
+                
+                // Populate default config
+                this.updateConfig(this.config);
+            });
+        }
 
         // Configuration updates
-        document.getElementById('config-startingBalance').addEventListener('change', (e) => {
-            this.updateConfig({ startingBalance: parseInt(e.target.value) });
+        document.querySelectorAll('input[name="gameMode"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if(e.target.checked) this.updateConfig({ gameMode: e.target.value });
+            });
         });
+        
+        const enableMaxWaifusEl = document.getElementById('config-enableMaxWaifus');
+        if (enableMaxWaifusEl) {
+            enableMaxWaifusEl.addEventListener('change', (e) => {
+                document.getElementById('config-maxWaifus').disabled = !e.target.checked;
+                this.updateConfig({ enableMaxWaifus: e.target.checked });
+            });
+        }
+        
+        const maxWaifusEl = document.getElementById('config-maxWaifus');
+        if (maxWaifusEl) {
+            maxWaifusEl.addEventListener('change', (e) => {
+                this.updateConfig({ maxWaifus: parseInt(e.target.value) });
+            });
+        }
+        
+        const enableMaxRoundsEl = document.getElementById('config-enableMaxRounds');
+        if (enableMaxRoundsEl) {
+            enableMaxRoundsEl.addEventListener('change', (e) => {
+                document.getElementById('config-maxRounds').disabled = !e.target.checked;
+                this.updateConfig({ enableMaxRounds: e.target.checked });
+            });
+        }
+        
+        const maxRoundsEl = document.getElementById('config-maxRounds');
+        if (maxRoundsEl) {
+            maxRoundsEl.addEventListener('change', (e) => {
+                this.updateConfig({ maxRounds: parseInt(e.target.value) });
+            });
+        }
 
-        document.getElementById('config-maxPlayers').addEventListener('change', (e) => {
-            this.updateConfig({ maxPlayers: parseInt(e.target.value) });
-        });
+        const startingBalanceEl = document.getElementById('config-startingBalance');
+        if (startingBalanceEl) {
+            startingBalanceEl.addEventListener('change', (e) => {
+                this.updateConfig({ startingBalance: parseInt(e.target.value) });
+            });
+        }
 
-        document.getElementById('config-maxCharactersPerPlayer').addEventListener('change', (e) => {
-            this.updateConfig({ maxCharactersPerPlayer: parseInt(e.target.value) });
-        });
+        const biddingModeEl = document.getElementById('config-biddingMode');
+        if (biddingModeEl) {
+            biddingModeEl.addEventListener('change', (e) => {
+                this.updateConfig({ biddingMode: e.target.value });
+            });
+        }
 
-        document.getElementById('config-timePerCharacter').addEventListener('change', (e) => {
-            this.updateConfig({ timePerCharacter: parseInt(e.target.value) });
-        });
+        // Host start game button
+        const startBtn = document.getElementById('btn-start-game');
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                if (this.client.isHost) {
+                    this.startGame();
+                }
+            });
+        }
 
-        document.getElementById('config-biddingMode').addEventListener('change', (e) => {
-            this.updateConfig({ biddingMode: e.target.value });
-        });
+        // Random characters (button may not exist in current UI)
+        const randomBtn = document.getElementById('btn-random');
+        if (randomBtn) {
+            randomBtn.addEventListener('click', () => this.generateRandomCharacters());
+        }
 
-        document.getElementById('config-timeoutBehavior').addEventListener('change', (e) => {
-            this.updateConfig({ timeoutBehavior: e.target.value });
-        });
-
-        document.getElementById('config-showRoundCount').addEventListener('change', (e) => {
-            this.updateConfig({ showRoundCount: e.target.checked });
-        });
-
-        // Host participation toggle
-        document.getElementById('config-hostParticipating').addEventListener('change', (e) => {
-            const nameGroup = document.getElementById('host-name-group');
-            nameGroup.style.display = e.target.checked ? 'block' : 'none';
-        });
-
-        // AniList search
-        document.getElementById('btn-search').addEventListener('click', () => this.searchCharacters());
-        document.getElementById('anilist-search').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.searchCharacters();
-        });
-
-        // Random characters
-        document.getElementById('btn-random').addEventListener('click', () => this.generateRandomCharacters());
+        // Player Selection UI (for when host is chosen)
+        const btnPlayerSearch = document.getElementById('btn-player-search');
+        if (btnPlayerSearch) {
+            btnPlayerSearch.addEventListener('click', () => this.searchCharactersForSelection());
+        }
+        const playerSearchInput = document.getElementById('player-anilist-search');
+        if (playerSearchInput) {
+            playerSearchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.searchCharactersForSelection();
+            });
+        }
 
         // Start game
         document.getElementById('btn-start-game').addEventListener('click', () => this.startGame());
@@ -169,19 +231,31 @@ class HostView {
         }
 
         console.log('Generated', characters.length, 'random characters');
+        let addedCount = 0;
+        
         characters.forEach(char => {
-            const item = document.createElement('div');
-            item.className = 'search-item blind-mode-item';
-            item.innerHTML = `
-                <div class="blind-placeholder">🎭</div>
-                <div class="search-item-info">
-                    <h4>${char.animeName}</h4>
-                    <p class="blind-mode-text">Personaje oculto (se revelará al final)</p>
-                </div>
-            `;
-            item.addEventListener('click', () => this.addToPool(char));
-            resultsContainer.appendChild(item);
+            // Evitar duplicados silenciosamente en lugar de mostrar alert
+            if (!this.client.selectedPool.find(c => c.id === char.id)) {
+                // Normalize character structure for addToPool
+                const normalizedChar = {
+                    id: char.id,
+                    characterName: char.characterName || char.name?.full || 'Unknown',
+                    imageUrl: char.imageUrl || char.image?.large || '',
+                    animeName: char.animeName || this.currentAnimeName || 'Unknown',
+                    isBlind: char.isBlind || false
+                };
+                
+                this.client.selectedPool.push(normalizedChar);
+                addedCount++;
+            }
         });
+        
+        this.updatePoolDisplay();
+        if (this.client.room) {
+            this.client.send('poolUpdated', { characters: this.client.selectedPool });
+        }
+        
+        resultsContainer.innerHTML = `<p style="color: #48bb78; font-weight: bold;">¡Se añadieron ${addedCount} personajes aleatorios a la subasta!</p>`;
     }
 
     addToPool(character) {
@@ -269,26 +343,13 @@ class HostView {
     }
 
     startGame() {
-        if (this.client.selectedPool.length === 0) {
-            alert('Debes seleccionar al menos un personaje');
-            return;
-        }
-
-        // Check if host wants to participate
-        const hostParticipating = document.getElementById('config-hostParticipating').checked;
-        if (hostParticipating) {
-            const hostName = document.getElementById('host-player-name').value.trim();
-            if (!hostName) {
-                alert('Debes ingresar tu nombre para participar como jugador');
-                return;
-            }
-            // Host joins as player - handled locally for P2P
-            this.client.playerName = hostName;
-        }
-
+        // Enviar el evento de inicio a todos los jugadores
         if (this.client.room) {
-            this.client.send('gameStart', { config: this.config, pool: this.client.selectedPool });
+            this.client.send('gameStart', { config: this.config });
         }
+        
+        // El host también ejecuta su propia lógica de inicio
+        this.onGameStart({ config: this.config });
     }
 
     // Override client methods
@@ -366,52 +427,220 @@ class HostView {
         this.currentRound.highestBidder = data.playerId;
         this.currentRound.bids.push(data);
 
+        const updateData = {
+            highestBid: this.currentRound.highestBid,
+            highestBidderId: this.currentRound.highestBidder,
+            playerName: data.playerName, // Para compatibilidad con el UI de player
+            amount: this.currentRound.highestBid
+        };
+
+        // Update Host UI
+        this.onBidUpdate(updateData);
+
         // Broadcast bid update to all
         if (this.client.room) {
-            this.client.send('bidUpdate', data);
+            this.client.send('bidUpdate', updateData);
         }
+
+        // Reset the 5-second timer on new bid
+        this.startRoundTimer();
     }
 
     startFirstRound() {
-        if (this.client.selectedPool.length === 0) {
-            alert('No hay personajes en el pool');
-            return;
-        }
         this.currentRound.index = 0;
         this.startRound();
     }
 
-    startRound() {
-        if (this.currentRound.index >= this.client.selectedPool.length) {
+    checkGameEndCondition() {
+        // Condition 1: Max Rounds reached
+        if (this.config.enableMaxRounds && this.currentRound.index >= this.config.maxRounds) {
+            return true;
+        }
+
+        const activePlayers = Object.values(this.players).filter(p => p.connected);
+        if (activePlayers.length === 0) return true;
+
+        // Condition 2: All players are broke
+        const allBroke = activePlayers.every(p => p.balance <= 0);
+        if (allBroke) return true;
+
+        // Condition 3: All players reached max waifus
+        if (this.config.enableMaxWaifus) {
+            const allFull = activePlayers.every(p => p.collection.length >= this.config.maxWaifus);
+            if (allFull) return true;
+        }
+
+        return false;
+    }
+
+    async startRound() {
+        if (this.checkGameEndCondition()) {
             this.endGame();
             return;
         }
 
-        const character = this.client.selectedPool[this.currentRound.index];
+        this.currentRound.index++;
+        
+        if (this.config.gameMode === 'eleccion') {
+            // Pick a random connected player
+            const activePlayers = Object.values(this.players).filter(p => p.connected);
+            const chosenPlayer = activePlayers[Math.floor(Math.random() * activePlayers.length)];
+            
+            console.log('Player chosen for selection:', chosenPlayer.name);
+            
+            if (chosenPlayer.id === this.client.playerId) {
+                // Host is chosen
+                this.client.showScreen('player-selection-screen');
+                document.getElementById('player-selection-blind').checked = false;
+                document.getElementById('player-anilist-search').value = '';
+                document.getElementById('player-search-results').innerHTML = '';
+            } else {
+                // Send request to specific player
+                if (this.client.room) {
+                    this.client.send('requestCharacterSelection', { targetPlayerId: chosenPlayer.id });
+                }
+                // Update host UI to show waiting message
+                this.client.showScreen('game-screen');
+                document.getElementById('character-reveal').innerHTML = `<h3>Esperando a que ${chosenPlayer.name} elija un personaje...</h3>`;
+                document.querySelector('.bidding-controls').style.display = 'none';
+            }
+        } else {
+            // aleatorio or aciegas
+            this.client.showScreen('game-screen');
+            document.getElementById('character-reveal').innerHTML = `<h3>Buscando personaje aleatorio...</h3>`;
+            document.querySelector('.bidding-controls').style.display = 'none';
+            
+            // Get 1 random character
+            const characters = await this.client.searchAnimeByGenres([], 'all', 1);
+            if (characters && characters.length > 0) {
+                const char = characters[0];
+                const normalizedChar = {
+                    id: char.id,
+                    characterName: char.characterName || char.name?.full || 'Unknown',
+                    imageUrl: char.imageUrl || char.image?.large || '',
+                    animeName: char.animeName || this.currentAnimeName || 'Unknown',
+                    isBlind: this.config.gameMode === 'aciegas'
+                };
+                this.startAuctionWithCharacter(normalizedChar);
+            } else {
+                alert('Error al buscar personaje aleatorio. Reintentando...');
+                setTimeout(() => this.startRound(), 2000);
+            }
+        }
+    }
+
+    startAuctionWithCharacter(character) {
         this.currentRound.character = character;
         this.currentRound.highestBid = 0;
         this.currentRound.highestBidder = null;
         this.currentRound.bids = [];
+        this.currentRound.timerActive = false;
+        if (this.roundTimer) clearTimeout(this.roundTimer);
 
         // Broadcast round start
         if (this.client.room) {
             this.client.send('roundStart', {
                 roundIndex: this.currentRound.index,
                 character: character,
-                timeLimit: this.config.timePerCharacter
+                timeLimit: 5 // Initial time doesn't matter much as timer only starts on first bid
             });
         }
+        
+        this.client.showScreen('game-screen');
+        // Let the normal game UI setup handle showing the character
+        this.setupGameUI(); // Wait, setupGameUI doesn't render character. Let's rely on onRoundStart event.
+        this.onRoundStart({ character: character, roundIndex: this.currentRound.index });
 
-        // Start timer
+        // Start the 5-second timer
         this.startRoundTimer();
+    }
+
+    onTimerUpdate(data) {
+        const timerDisplay = document.getElementById('timer');
+        if (timerDisplay) {
+            timerDisplay.textContent = data.timeLeft;
+        }
+    }
+
+    onRequestCharacterSelection(data) {
+        this.client.showScreen('player-selection-screen');
+        document.getElementById('player-selection-blind').checked = false;
+        document.getElementById('player-anilist-search').value = '';
+        document.getElementById('player-search-results').innerHTML = '';
+    }
+
+    async searchCharactersForSelection() {
+        const query = document.getElementById('player-anilist-search').value.trim();
+        if (!query) return;
+
+        const resultsContainer = document.getElementById('player-search-results');
+        resultsContainer.innerHTML = '<p>Buscando...</p>';
+
+        const result = await this.client.searchAniList(query, [], 'all');
+        this.currentAnimeName = result.animeTitle || query;
+        
+        resultsContainer.innerHTML = '';
+        
+        if (result.characters.length === 0) {
+            resultsContainer.innerHTML = '<p>No se encontraron resultados</p>';
+            return;
+        }
+
+        result.characters.forEach(char => {
+            const item = document.createElement('div');
+            item.className = 'search-item';
+            item.innerHTML = `
+                <img src="${char.image.large}" alt="${char.name.full}">
+                <div class="search-item-info">
+                    <h4>${char.name.full}</h4>
+                    <p>${char.gender || 'Género desconocido'}</p>
+                </div>
+            `;
+            item.addEventListener('click', () => {
+                const isBlind = document.getElementById('player-selection-blind').checked;
+                const normalizedChar = {
+                    id: char.id,
+                    characterName: char.characterName || char.name?.full || 'Unknown',
+                    imageUrl: char.imageUrl || char.image?.large || '',
+                    animeName: char.animeName || this.currentAnimeName || 'Unknown',
+                    isBlind: isBlind
+                };
+                
+                // If it's the host selecting, just handle directly
+                this.onCharacterSelected({ character: normalizedChar });
+            });
+            resultsContainer.appendChild(item);
+        });
+    }
+
+    onCharacterSelected(data) {
+        this.startAuctionWithCharacter(data.character);
     }
 
     startRoundTimer() {
         if (this.roundTimer) clearTimeout(this.roundTimer);
         
-        this.roundTimer = setTimeout(() => {
-            this.resolveRound();
-        }, this.config.timePerCharacter * 1000);
+        this.currentRound.timerActive = true;
+        let timeLeft = 5;
+        
+        if (this.client.room) {
+            this.client.send('timerUpdate', { timeLeft });
+        }
+        this.onTimerUpdate({ timeLeft });
+
+        this.roundTimer = setInterval(() => {
+            timeLeft--;
+            
+            if (this.client.room) {
+                this.client.send('timerUpdate', { timeLeft });
+            }
+            this.onTimerUpdate({ timeLeft });
+
+            if (timeLeft <= 0) {
+                clearInterval(this.roundTimer);
+                this.resolveRound();
+            }
+        }, 1000);
     }
 
     resolveRound() {
@@ -421,18 +650,30 @@ class HostView {
             winner.collection.push(this.currentRound.character);
         }
 
+        const resultData = {
+            winnerId: this.currentRound.highestBidder,
+            winnerName: this.currentRound.highestBidder ? this.players[this.currentRound.highestBidder].name : null,
+            winningBid: this.currentRound.highestBid,
+            character: this.currentRound.character,
+            balances: {},
+            collections: {}
+        };
+        
+        // Populate current states for sync
+        Object.entries(this.players).forEach(([id, p]) => {
+            resultData.balances[id] = p.balance;
+            resultData.collections[id] = p.collection;
+        });
+
         // Broadcast round result
         if (this.client.room) {
-            this.client.send('roundResult', {
-                winnerId: this.currentRound.highestBidder,
-                winnerName: this.currentRound.highestBidder ? this.players[this.currentRound.highestBidder].name : null,
-                winningBid: this.currentRound.highestBid,
-                character: this.currentRound.character
-            });
+            this.client.send('roundResult', resultData);
         }
+        
+        // Show result locally
+        this.onRoundResult(resultData);
 
         // Next round
-        this.currentRound.index++;
         setTimeout(() => this.startRound(), 3000);
     }
 
@@ -444,41 +685,27 @@ class HostView {
     }
 
     setupGameUI() {
-        // Check if host is participating as player
-        const hostParticipating = document.getElementById('config-hostParticipating').checked;
+        // Host always participates in the unified UI
+        document.getElementById('player-name-display').textContent = this.client.playerName || 'Anfitrión';
+        this.updatePlayerInfo();
         
-        if (hostParticipating && this.client.playerId) {
-            // Host is participating - enable player UI
-            const hostName = document.getElementById('host-player-name').value;
-            document.getElementById('player-name-display').textContent = hostName;
-            this.updatePlayerInfo();
-            
-            // Enable bidding controls for participating host
-            document.getElementById('bid-amount').disabled = false;
-            document.getElementById('btn-bid').disabled = false;
-            document.getElementById('btn-pass').disabled = false;
-        } else {
-            // Host monitors the game but doesn't participate
-            document.getElementById('player-name-display').textContent = 'Anfitrión';
-            document.getElementById('player-balance').textContent = '-';
-            document.getElementById('player-collection').textContent = '-';
-            
-            // Disable bidding controls for non-participating host
-            document.getElementById('bid-amount').disabled = true;
-            document.getElementById('btn-bid').disabled = true;
-            document.getElementById('btn-pass').disabled = true;
-        }
+        // Enable bidding controls for host
+        document.getElementById('bid-amount').disabled = false;
+        document.getElementById('btn-bid').disabled = false;
+        document.getElementById('btn-pass').disabled = false;
         
-        // Add host-specific resolve button
+        // Add host-specific resolve button if not already added
         const biddingControls = document.querySelector('.bidding-controls');
-        const resolveBtn = document.createElement('button');
-        resolveBtn.id = 'btn-resolve-round';
-        resolveBtn.className = 'btn btn-primary';
-        resolveBtn.textContent = 'Finalizar Ronda';
-        resolveBtn.addEventListener('click', () => {
-            this.resolveRound();
-        });
-        biddingControls.appendChild(resolveBtn);
+        if (biddingControls && !document.getElementById('btn-resolve-round')) {
+            const resolveBtn = document.createElement('button');
+            resolveBtn.id = 'btn-resolve-round';
+            resolveBtn.className = 'btn btn-primary';
+            resolveBtn.textContent = 'Finalizar Ronda';
+            resolveBtn.addEventListener('click', () => {
+                this.resolveRound();
+            });
+            biddingControls.appendChild(resolveBtn);
+        }
         
         this.setupHostTimer();
     }
@@ -488,14 +715,14 @@ class HostView {
     }
 
     updatePlayerInfo() {
-        if (!this.client.gameState || !this.client.gameState.players[this.client.playerId]) {
+        if (!this.players || !this.players[this.client.playerId]) {
             return;
         }
 
-        const player = this.client.gameState.players[this.client.playerId];
+        const player = this.players[this.client.playerId];
         document.getElementById('player-balance').textContent = this.client.formatCurrency(player.balance);
-        document.getElementById('player-collection').textContent = 
-            `${player.collection.length}/${this.client.gameState.config.maxCharactersPerPlayer}`;
+        const maxWaifus = this.config.enableMaxWaifus ? this.config.maxWaifus : '∞';
+        document.getElementById('player-collection').textContent = `${player.collection.length}/${maxWaifus}`;
     }
 
     placeBid() {
@@ -506,20 +733,20 @@ class HostView {
         }
 
         if (this.client.room) {
-            this.client.send('bidUpdate', { playerId: this.client.playerId, playerName: this.client.playerName, amount: bidAmount });
+            const bidData = { playerId: this.client.playerId, playerName: this.client.playerName, amount: bidAmount };
+            this.handleBid(bidData); // Host maneja su propia puja localmente
         }
         document.getElementById('bid-amount').value = '';
     }
 
     pass() {
         if (this.client.room) {
-            this.client.send('bidUpdate', { playerId: this.client.playerId, playerName: this.client.playerName, pass: true });
+            this.handleBid({ playerId: this.client.playerId, playerName: this.client.playerName, pass: true });
         }
     }
 
     updateBiddingControls() {
-        const hostParticipating = document.getElementById('config-hostParticipating').checked;
-        if (!hostParticipating || !this.client.playerId) return;
+        if (!this.client.playerId) return;
 
         const canBid = this.canPlayerBid();
         document.getElementById('bid-amount').disabled = !canBid;
@@ -551,85 +778,78 @@ class HostView {
     }
 
     onRoundStart(data) {
-        // Update round display
         const roundDisplay = document.getElementById('round-display');
-        if (data.roundTotal) {
-            roundDisplay.textContent = `Ronda ${data.roundIndex + 1} de ${data.roundTotal}`;
-        } else {
-            roundDisplay.textContent = `Ronda ${data.roundIndex + 1}`;
+        const roundText = this.config.enableMaxRounds ? `Ronda ${data.roundIndex + 1} de ${this.config.maxRounds}` : `Ronda ${data.roundIndex + 1}`;
+        if (roundDisplay) {
+            roundDisplay.textContent = roundText;
         }
 
-        // Update anime name
-        document.getElementById('anime-name').textContent = data.animeName;
+        const character = data.character;
+        
+        // Display character for host
+        const characterDisplay = document.getElementById('character-reveal');
+        if (characterDisplay) {
+            if (character.isBlind) {
+                characterDisplay.innerHTML = `
+                    <div class="blind-placeholder-large">🎭</div>
+                    <h3 id="anime-name">${character.animeName}</h3>
+                    <p class="blind-mode-text" id="blind-mode-msg">Personaje oculto (se revelará al final)</p>
+                `;
+            } else {
+                characterDisplay.innerHTML = `
+                    <img src="${character.imageUrl}" alt="${character.characterName}" style="max-width: 200px; max-height: 200px; border-radius: 8px;">
+                    <h3 id="anime-name">${character.animeName}</h3>
+                    <p>${character.characterName}</p>
+                `;
+            }
+        }
 
         // Reset bid display
         document.getElementById('current-bid').textContent = '0';
         document.getElementById('current-bidder').textContent = '-';
         this.currentBid = 0;
 
-        // Reset bidding controls for participating host
-        const hostParticipating = document.getElementById('config-hostParticipating').checked;
-        if (hostParticipating && this.client.playerId) {
-            document.getElementById('bid-amount').value = '';
-            document.getElementById('bid-amount').disabled = false;
-            document.getElementById('btn-bid').disabled = false;
-            document.getElementById('btn-pass').disabled = false;
+        // Reset bidding controls if host is participating
+        const hostParticipating = true; // Host always participates in the new UI? Wait, host always joins.
+        // Let's assume host is always participating now since we removed the toggle, wait, did we?
+        // Wait, in my previous edit I removed `config-hostParticipating` from config, but wait, I didn't remove the checkbox from index.html!
+        // Actually, let's just enable the controls for the host.
+        const bidAmountInput = document.getElementById('bid-amount');
+        if (bidAmountInput) {
+            bidAmountInput.value = '';
+            bidAmountInput.disabled = false;
         }
+        const btnBid = document.getElementById('btn-bid');
+        if (btnBid) btnBid.disabled = false;
+        const btnPass = document.getElementById('btn-pass');
+        if (btnPass) btnPass.disabled = false;
 
-        // Show/hide turn indicator
+        // Show/hide turn indicator (we can just hide it as free bidding is the default)
         const turnIndicator = document.getElementById('turn-indicator');
-        if (data.openerPlayerId) {
-            turnIndicator.classList.remove('hidden');
-            if (this.client.gameState && this.client.gameState.players[data.openerPlayerId]) {
-                document.getElementById('opener-name').textContent = 
-                    this.client.gameState.players[data.openerPlayerId].name;
-            }
-        } else {
+        if (turnIndicator) {
             turnIndicator.classList.add('hidden');
         }
-
-        // Start host timer (auto-resolve when time ends)
-        this.startHostTimer(data.timeLimit);
 
         // Update players summary
         this.updatePlayersSummary();
     }
 
-    startHostTimer(seconds) {
-        if (this.hostTimerInterval) {
-            clearInterval(this.hostTimerInterval);
-        }
-
-        let timeLeft = seconds;
-        const timerDisplay = document.getElementById('timer');
-        timerDisplay.textContent = timeLeft;
-
-        this.hostTimerInterval = setInterval(() => {
-            timeLeft--;
-            timerDisplay.textContent = timeLeft;
-
-            if (timeLeft <= 0) {
-                clearInterval(this.hostTimerInterval);
-                // Auto-resolve round when timer ends
-                this.resolveRound();
-            }
-        }, 1000);
-    }
 
     onBidUpdate(data) {
         document.getElementById('current-bid').textContent = this.client.formatCurrency(data.highestBid);
         this.currentBid = data.highestBid;
         
-        if (data.highestBidderId && this.client.gameState && this.client.gameState.players[data.highestBidderId]) {
-            const bidderName = this.client.gameState.players[data.highestBidderId].name;
+        if (data.highestBidderId && this.players && this.players[data.highestBidderId]) {
+            const bidderName = this.players[data.highestBidderId].name;
             document.getElementById('current-bidder').textContent = `por ${bidderName}`;
+        } else if (data.playerName) {
+            document.getElementById('current-bidder').textContent = `por ${data.playerName}`;
         } else {
             document.getElementById('current-bidder').textContent = '-';
         }
 
-        // Update host player info if participating
-        const hostParticipating = document.getElementById('config-hostParticipating').checked;
-        if (hostParticipating && this.client.playerId) {
+        // Update host player info
+        if (this.client.playerId) {
             this.updatePlayerInfo();
             this.updateBiddingControls();
         }
@@ -643,18 +863,8 @@ class HostView {
             clearInterval(this.hostTimerInterval);
         }
 
-        // Update local game state
-        if (this.client.gameState) {
-            Object.keys(data.balances).forEach(playerId => {
-                if (this.client.gameState.players[playerId]) {
-                    this.client.gameState.players[playerId].balance = data.balances[playerId];
-                    this.client.gameState.players[playerId].collection = data.collections[playerId];
-                }
-            });
-        }
-
         // Update host player info if participating
-        const hostParticipating = document.getElementById('config-hostParticipating').checked;
+        const hostParticipating = true;
         if (hostParticipating && this.client.playerId) {
             this.updatePlayerInfo();
         }
@@ -662,13 +872,17 @@ class HostView {
         // Show result screen
         this.client.showScreen('round-result');
         
-        document.getElementById('result-image').src = data.imageUrl;
-        document.getElementById('result-character').textContent = data.characterName;
-        document.getElementById('result-anime').textContent = data.animeName;
+        // Use character data from the result
+        const char = data.character || {};
+        document.getElementById('result-image').src = char.imageUrl || data.imageUrl || '';
+        document.getElementById('result-character').textContent = char.characterName || data.characterName || 'Desconocido';
+        document.getElementById('result-anime').textContent = char.animeName || data.animeName || '';
         
-        if (data.winnerId && this.client.gameState && this.client.gameState.players[data.winnerId]) {
+        if (data.winnerName) {
+            document.getElementById('result-winner').textContent = `Ganado por: ${data.winnerName}`;
+        } else if (data.winnerId && this.players && this.players[data.winnerId]) {
             document.getElementById('result-winner').textContent = 
-                `Ganado por: ${this.client.gameState.players[data.winnerId].name}`;
+                `Ganado por: ${this.players[data.winnerId].name}`;
         } else {
             document.getElementById('result-winner').textContent = 'Sin ganador';
         }
@@ -678,36 +892,36 @@ class HostView {
         // Countdown for next round
         let countdown = 3;
         const countdownEl = document.getElementById('next-round-countdown');
-        countdownEl.textContent = countdown;
+        if (countdownEl) countdownEl.textContent = countdown;
 
         const countdownInterval = setInterval(() => {
             countdown--;
-            countdownEl.textContent = countdown;
+            if (countdownEl) countdownEl.textContent = countdown;
             
             if (countdown <= 0) {
                 clearInterval(countdownInterval);
-                // Return to game screen for next round
-                this.client.showScreen('game-screen');
-                this.updatePlayersSummary();
+                // Transition handled by next startRound or endGame
             }
         }, 1000);
     }
 
     updatePlayersSummary() {
-        if (!this.client.gameState) return;
+        const summaryContainer = document.getElementById('game-players');
+        if (!summaryContainer || !this.players) return;
 
-        const playersSummary = document.getElementById('game-players');
-        playersSummary.innerHTML = '';
+        summaryContainer.innerHTML = '';
 
-        Object.entries(this.client.gameState.players).forEach(([playerId, player]) => {
+        const maxWaifus = this.config.enableMaxWaifus ? this.config.maxWaifus : '∞';
+
+        Object.entries(this.players).forEach(([playerId, player]) => {
             const card = document.createElement('div');
             card.className = 'mini-player-card';
             card.innerHTML = `
                 <strong>${player.name}</strong><br>
                 💰 ${this.client.formatCurrency(player.balance)}<br>
-                🎭 ${player.collection.length}/${this.client.gameState.config.maxCharactersPerPlayer}
+                🎭 ${player.collection.length}/${maxWaifus}
             `;
-            playersSummary.appendChild(card);
+            summaryContainer.appendChild(card);
         });
     }
 

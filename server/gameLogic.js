@@ -101,7 +101,7 @@ function placeBid(playerId, amount) {
 }
 
 function resolveRound() {
-  const { highestBidderId, characterId, index } = gameState.currentRound;
+  const { highestBidderId, highestBid, characterId, index } = gameState.currentRound;
   
   let winnerId = null;
   let winningBid = 0;

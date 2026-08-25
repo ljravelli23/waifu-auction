@@ -275,13 +275,6 @@ class WaifuAuctionClient {
     onReconnected(data) {}
 
     // Shared utility methods
-    showScreen(screenId) {
-        document.querySelectorAll('.screen').forEach(screen => {
-            screen.classList.add('hidden');
-        });
-        document.getElementById(screenId).classList.remove('hidden');
-    }
-
     formatCurrency(amount) {
         return amount.toLocaleString();
     }

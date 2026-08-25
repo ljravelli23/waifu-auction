@@ -768,8 +768,8 @@ p {
         height: 150px;
     }
 }
-/ *   N E W   U N I F I E D   U I   S T Y L E S   * /  
- .lobby-header {
+/* NEW UNIFIED UI STYLES */
+.lobby-header {
     text-align: center;
     border-bottom: 1px solid rgba(255,255,255,0.1);
     padding-bottom: 20px;

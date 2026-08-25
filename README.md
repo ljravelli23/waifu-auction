@@ -4,163 +4,112 @@ Juego multijugador en tiempo real donde un anfitrión organiza una subasta de pe
 
 ## Características
 
-- **Sin servidor externo**: Corre 100% desde la laptop del anfitrión
-- **Túnel a internet**: Usa cloudflared para compartir con amigos (sin cuenta requerida)
+- **Sin servidor**: Corre 100% en el navegador usando WebRTC P2P (Trystero)
+- **GitHub Pages**: Alojado estáticamente, sin backend ni descargas requeridas
+- **Códigos de sala**: Los jugadores se unen con un código de 4 letras
 - **Búsqueda en AniList**: Busca anime y personajes directamente desde la API
-- **Filtros de géneros**: Filtra por géneros de anime (Acción, Romance, Fantasía, etc.)
-- **Filtro de género de personaje**: Solo waifus, solo hombres, o todos
-- **Modo aleatorio**: Genera personajes aleatorios basados en filtros seleccionados
-- **Participación del anfitrión**: El anfitrión puede optar por participar como jugador
-- **Modos de puja**: Libre o por turnos
+- **Modos de juego**: Elección, Aleatorio, y A ciegas
+- **Configuración flexible**: Saldo inicial, máximo de waifus, rondas, modo de puja
 - **Compra a ciegas**: Solo se revela el nombre del anime durante la puja
-- **Sistema de votación**: Múltiples modos para elegir la "mejor compra"
-- **Tiempo real**: Pujas, timers y actualizaciones vía Socket.IO
+- **Tiempo real**: Pujas, timers y actualizaciones vía WebRTC P2P
 
-## Requisitos
+## GitHub Pages
 
-- Node.js (v14 o superior)
-- npm
-
-## Instalación
-
-1. Clonar o descargar el proyecto
-2. Instalar dependencias:
-```bash
-npm install
-```
-
-## Subir a GitHub
-
-Para subir el proyecto a GitHub:
-
-1. Crear un nuevo repositorio en [GitHub.com](https://github.com/new)
-2. Copiar la URL del repositorio (ej: `https://github.com/tu-usuario/waifu-auction.git`)
-3. En tu terminal local, ejecutar:
-```bash
-git remote add origin https://github.com/tu-usuario/waifu-auction.git
-git branch -M main
-git push -u origin main
-```
-
-## GitHub Pages (Showcase)
-
-**Nota importante:** GitHub Pages solo aloja sitios estáticos. Este juego requiere un servidor Node.js con Socket.IO, por lo que GitHub Pages solo servirá como showcase del frontend (no será funcional para jugar).
+El juego está alojado en GitHub Pages y es completamente funcional sin necesidad de servidor.
 
 Para activar GitHub Pages:
 1. Ve a tu repositorio en GitHub
 2. Settings > Pages
 3. Source: Deploy from a branch
-4. Branch: main, folder: / (root)
+4. Branch: main, folder: / (root) o /public
 5. Save
 
 El sitio estará disponible en `https://tu-usuario.github.io/waifu-auction/`
 
-## Cómo Correr
+## Cómo Jugar
 
-1. Iniciar el servidor:
-```bash
-npm start
-```
+### Anfitrión
+1. Abre el link de GitHub Pages
+2. Ingresa tu nombre
+3. Haz clic en "Crear Sala (Anfitrión)"
+4. Comparte el código de sala de 4 letras con tus amigos
+5. Configura la partida (modo de juego, saldo inicial, etc.)
+6. Espera a que los jugadores se unan
+7. Inicia la partida cuando esté listo
 
-2. Exponer a internet con cloudflared (sin cuenta requerida):
-
-**Instalar cloudflared:**
-- Descargar cloudflared para Windows desde: https://github.com/cloudflare/cloudflared/releases
-- Extraer el archivo .zip
-- Mover el ejecutable a una carpeta accesible o agregar al PATH
-
-**Ejecutar túnel:**
-```bash
-cloudflared tunnel --url http://localhost:3000
-```
-
-**Compartir con jugadores:**
-- cloudflared generará un link HTTPS (ej: https://xxxxx.trycloudflare.com)
-- Compartir ese link con los jugadores
-- Los jugadores abren el link en sus navegadores
-
-3. El anfitrión abre el link y selecciona "Soy Anfitrión"
-4. Los jugadores abren el link y seleccionan "Soy Jugador"
+### Jugadores
+1. Abren el link de GitHub Pages
+2. Ingresan su nombre
+3. Ingresan el código de sala que les compartió el anfitrión
+4. Hacen clic en "Unirse"
+5. Esperan a que el anfitrión inicie la partida
 
 ## Flujo del Juego
 
 ### Anfitrión
-1. Configura los parámetros de la partida (saldo inicial, jugadores máximos, tiempo por ronda, etc.)
-2. **Opcional**: Marca "Participar como jugador" e ingresa tu nombre si quieres pujar también
-3. Busca anime/personajes en AniList y selecciona los que formarán parte de las rondas
-4. Espera a que los jugadores se unan al lobby
-5. Inicia la partida cuando esté listo
-6. Si participas como jugador: puja, pasa y compite como cualquier otro jugador
-7. Siempre puedes finalizar rondas manualmente con el botón "Finalizar Ronda"
-8. Al final, selecciona el modo de votación o salta a resultados finales
+1. Configura los parámetros de la partida (modo de juego, saldo inicial, etc.)
+2. Espera a que los jugadores se unan al lobby
+3. Inicia la partida cuando esté listo
+4. En modo "Elección": cada jugador elige un personaje para subastar
+5. En modo "Aleatorio": los personajes se generan automáticamente
+6. En modo "A ciegas": los personajes se generan sin revelar la imagen
+7. Gestiona las rondas y pujas
+8. Finaliza la partida y muestra resultados
 
 ### Jugadores
-1. Entran al link del túnel
-2. Ingresan su nombre para unirse al lobby
-3. Esperan a que el anfitrión inicie la partida
-4. En cada ronda:
-   - Ven solo el nombre del anime (compra a ciegas)
+1. Se unen al lobby con el código de sala
+2. Esperan a que el anfitrión inicie la partida
+3. En cada ronda:
+   - Ven el personaje (o solo el anime en modo ciegas)
    - Pujan un monto mayor al actual o pasan
-   - Esperan el resultado y revelación del personaje
-5. Participan en la votación final (si el anfitrión la habilita)
-6. Ven los resultados finales con las colecciones de todos
+   - Esperan el resultado
+4. Acumulan personajes en su colección
+5. Ven los resultados finales
 
 ## Configuración de Partida
 
+- **Modo de juego**:
+  - `Elección`: Los jugadores eligen qué personajes subastar
+  - `Aleatorio`: Personajes generados automáticamente
+  - `A ciegas`: Personajes generados sin revelar la imagen
 - **Saldo Inicial**: Dinero inicial de cada jugador
-- **Jugadores Máximos**: Cupo máximo de jugadores
-- **Personajes por Jugador**: Límite de personajes que puede comprar cada jugador
-- **Tiempo por Personaje**: Segundos para pujar por cada personaje
+- **Máximo de waifus**: Límite de personajes por jugador (opcional)
+- **Máximo de rondas**: Límite de rondas (opcional)
 - **Modo de Puja**: 
   - `Libre`: Cualquiera puede pujar cuando quiera
-  - `Por Turnos`: Cada ronda un jugador debe abrir la puja (rotación)
-- **Comportamiento al finalizar tiempo**:
-  - `Saltar personaje`: Nadie gana si se acaba el tiempo
-  - `Finalizar con puja más alta`: Gana la puja más alta hasta ese momento
-- **Mostrar contador de rondas**: Muestra "Ronda 3 de 10" o solo "Ronda 3"
-
-## Modos de Votación
-
-- **Por Precio**: Se compara la compra más cara de cada jugador
-- **Uno por Uno**: Se califica cada personaje del 1 al 10
-- **Por Ronda**: Se agrupan las compras por número de ronda
-- **Sin votación**: Salta directo a resultados finales
+  - `Por Turnos`: Cada ronda un jugador debe abrir la puja
 
 ## Estructura del Proyecto
 
 ```
 waifu-auction/
-├── server/
-│   ├── server.js          # Servidor Express + Socket.IO
-│   ├── gameState.js       # Estado del juego en memoria
-│   ├── gameLogic.js       # Lógica del juego
-│   └── socketHandlers.js  # Manejadores de eventos Socket.IO
-├── public/
-│   ├── index.html         # Estructura HTML principal
-│   ├── css/
-│   │   └── styles.css     # Estilos
-│   └── js/
-│       ├── client.js      # Utilidades compartidas del cliente
-│       ├── hostView.js    # Vista del anfitrión
-│       └── playerView.js  # Vista del jugador
+├── index.html         # Estructura HTML principal
+├── css/
+│   └── styles.css     # Estilos
+├── js/
+│   ├── client.js      # Cliente Trystero y lógica compartida
+│   ├── hostView.js    # Vista del anfitrión
+│   └── playerView.js  # Vista del jugador
+├── server/            # (Obsoleto - ya no se usa)
 ├── package.json
 └── README.md
 ```
 
 ## Notas Importantes
 
-- Mientras dure la partida, desactivar la suspensión automática de la laptop
-- El anfitrión no participa como jugador, solo administra
-- Las imágenes de personajes se cargan directo desde el CDN de AniList (no pasan por el servidor)
-- El estado del juego no persiste si se reinicia el servidor
-- Para reconexión, los jugadores pueden recargar la página (el estado se mantiene en el servidor)
+- El juego usa WebRTC P2P (Trystero) para comunicación directa entre navegadores
+- No requiere servidor ni descargas adicionales
+- Las imágenes de personajes se cargan directo desde el CDN de AniList
+- El estado del juego se mantiene en el navegador del anfitrión
+- Si el anfitrión cierra la página, la partida se pierde
+- Para reconexión, los jugadores pueden recargar la página si el anfitrión sigue conectado
 
 ## Troubleshooting
 
-- Si los jugadores no pueden conectarse, verificar que el túnel esté funcionando
-- Si las imágenes no cargan, verificar conexión a internet (AniList API)
+- Si los jugadores no pueden conectarse, verificar que estén usando el mismo código de sala
 - Si hay problemas de conexión, intentar recargar la página
-- El anfitrión puede finalizar rondas manualmente si el timer falla
+- Los errores de WebSocket relay en la consola son normales - Trystero intenta múltiples relays
+- El anfitrión debe mantener la página abierta durante toda la partida
 
 ## Licencia
 
