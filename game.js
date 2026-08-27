@@ -1733,11 +1733,25 @@ const UI = {
             screen.classList.add('hidden');
         });
 
-        const targetScreen = document.getElementById(screenName + '-screen');
+        // Map screen names to actual HTML IDs
+        const screenIdMap = {
+            'start': 'start-screen',
+            'avatar': 'avatar-creator',
+            'lobby': 'lobby-screen',
+            'config': 'config-screen',
+            'selection': 'character-selection',
+            'auction': 'auction-room',
+            'end': 'end-screen'
+        };
+
+        const targetId = screenIdMap[screenName] || screenName + '-screen';
+        const targetScreen = document.getElementById(targetId);
+
         if (targetScreen) {
             targetScreen.classList.remove('hidden');
+            console.log('[UI] Screen displayed:', targetId);
         } else {
-            console.error('[UI] Screen not found:', screenName + '-screen');
+            console.error('[UI] Screen not found:', targetId);
         }
 
         GameState.screen = screenName;
@@ -2706,18 +2720,30 @@ function checkExternalScripts() {
     return true;
 }
 
-function addVisualFeedback(elementId) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        element.addEventListener('click', () => {
+function addVisualFeedback(element) {
+    let targetElement;
+
+    // Handle both string IDs and DOM elements
+    if (typeof element === 'string') {
+        targetElement = document.getElementById(element);
+    } else if (element instanceof HTMLElement) {
+        targetElement = element;
+    } else {
+        console.error('[DEBUG] Invalid element type for visual feedback:', typeof element);
+        return;
+    }
+
+    if (targetElement) {
+        const elementId = targetElement.id || targetElement.className || 'unknown';
+        targetElement.addEventListener('click', () => {
             console.log(`[DEBUG] Visual feedback on ${elementId}`);
-            element.style.transform = 'scale(0.95)';
+            targetElement.style.transform = 'scale(0.95)';
             setTimeout(() => {
-                element.style.transform = 'scale(1)';
+                targetElement.style.transform = 'scale(1)';
             }, 100);
         });
     } else {
-        console.error(`[DEBUG] Cannot add visual feedback - element not found: ${elementId}`);
+        console.error('[DEBUG] Cannot add visual feedback - element not found:', element);
     }
 }
 
