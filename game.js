@@ -1,5 +1,6 @@
 // ==================== GAME STATE ====================
 console.log('[Game] Initializing game state');
+window.gameInitialized = false; // Flag para tracking de inicialización
 const GameState = {
     screen: 'start', // start, avatar, lobby, config, selection, auction, end
     isHost: false,
@@ -2160,84 +2161,315 @@ const UI = {
 
 // ==================== EVENT LISTENERS ====================
 function setupEventListeners() {
-    // Start screen
-    document.getElementById('btn-create-room').addEventListener('click', handleCreateRoom);
-    document.getElementById('btn-join-room').addEventListener('click', () => {
-        document.getElementById('join-section').classList.toggle('hidden');
-    });
-    document.getElementById('btn-join-submit').addEventListener('click', handleJoinRoom);
-    document.getElementById('btn-edit-avatar').addEventListener('click', handleEditAvatar);
-    
-    // Avatar creator
-    document.getElementById('btn-save-avatar').addEventListener('click', handleSaveAvatar);
-    document.getElementById('btn-cancel-avatar').addEventListener('click', () => {
-        UI.showScreen('start');
-    });
-    
-    // Avatar controls
-    const avatarControls = [
-        'face-shape', 'skin-tone', 'eye-style', 'eye-color',
-        'eyebrow-style', 'nose-style', 'mouth-style', 'hair-style',
-        'hair-color', 'accessory'
-    ];
-    
-    avatarControls.forEach(id => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.addEventListener('change', () => {
-                AvatarSystem.init();
-                AvatarSystem.drawAvatar(AvatarSystem.getAvatarFromForm());
-            });
-        }
-    });
-    
-    // Lobby
-    document.getElementById('btn-configure-game').addEventListener('click', handleConfigureGame);
-    document.getElementById('btn-start-game').addEventListener('click', handleStartGame);
-    document.getElementById('btn-mute').addEventListener('click', () => Networking.toggleMute());
-    document.getElementById('btn-leave-room').addEventListener('click', handleLeaveRoom);
-    
-    // Configuration
-    document.getElementById('btn-save-config').addEventListener('click', handleSaveConfig);
-    document.getElementById('btn-cancel-config').addEventListener('click', () => {
-        UI.showScreen('lobby');
-    });
-    
-    // Character selection
-    document.getElementById('btn-search-anime').addEventListener('click', handleSearchAnime);
-    document.getElementById('btn-confirm-pool').addEventListener('click', handleConfirmPool);
-    document.getElementById('btn-cancel-pool').addEventListener('click', () => {
-        UI.showScreen('lobby');
-    });
-    document.getElementById('btn-propose-characters')?.addEventListener('click', () => {
-        UI.showScreen('selection');
-    });
-    
-    // HUD bidding
-    document.querySelectorAll('.bid-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const amount = btn.dataset.amount;
-            if (amount === 'max') {
-                const player = GameState.players.get(GameState.peer.id);
-                if (player) {
-                    Networking.placeBid(player.money);
-                }
+    console.log('[Init] Setting up event listeners...');
+
+    try {
+        // Verificar elementos críticos
+        const criticalElements = [
+            'btn-create-room', 'btn-join-room', 'btn-edit-avatar',
+            'player-name', 'start-screen'
+        ];
+
+        console.log('[Init] Checking for critical DOM elements...');
+        criticalElements.forEach(id => {
+            const element = document.getElementById(id);
+            if (!element) {
+                console.error(`[Init] Critical element not found: ${id}`);
             } else {
-                Networking.placeBid(parseInt(amount) + GameState.currentBid);
+                console.log(`[Init] Element found: ${id}`);
             }
         });
-    });
-    
-    document.querySelector('.skip-btn')?.addEventListener('click', () => {
-        Networking.skip();
-    });
-    
-    document.getElementById('hud-mute')?.addEventListener('click', () => {
-        Networking.toggleMute();
-    });
-    
-    // End screen
-    document.getElementById('btn-back-to-start').addEventListener('click', handleBackToStart);
+
+        // Start screen
+        const btnCreateRoom = document.getElementById('btn-create-room');
+        if (btnCreateRoom) {
+            addVisualFeedback('btn-create-room');
+            btnCreateRoom.addEventListener('click', (e) => {
+                console.log('[DEBUG] Click on btn-create-room');
+                try {
+                    handleCreateRoom(e);
+                } catch (error) {
+                    console.error('[DEBUG] Error in handleCreateRoom:', error);
+                }
+            });
+            console.log('[Init] btn-create-room listener registered');
+        } else {
+            console.error('[Init] btn-create-room not found');
+        }
+
+        const btnJoinRoom = document.getElementById('btn-join-room');
+        if (btnJoinRoom) {
+            addVisualFeedback('btn-join-room');
+            btnJoinRoom.addEventListener('click', () => {
+                console.log('[DEBUG] Click on btn-join-room');
+                document.getElementById('join-section').classList.toggle('hidden');
+            });
+            console.log('[Init] btn-join-room listener registered');
+        }
+
+        const btnJoinSubmit = document.getElementById('btn-join-submit');
+        if (btnJoinSubmit) {
+            addVisualFeedback('btn-join-submit');
+            btnJoinSubmit.addEventListener('click', (e) => {
+                console.log('[DEBUG] Click on btn-join-submit');
+                try {
+                    handleJoinRoom(e);
+                } catch (error) {
+                    console.error('[DEBUG] Error in handleJoinRoom:', error);
+                }
+            });
+            console.log('[Init] btn-join-submit listener registered');
+        }
+
+        const btnEditAvatar = document.getElementById('btn-edit-avatar');
+        if (btnEditAvatar) {
+            addVisualFeedback('btn-edit-avatar');
+            btnEditAvatar.addEventListener('click', (e) => {
+                console.log('[DEBUG] Click on btn-edit-avatar');
+                try {
+                    handleEditAvatar(e);
+                } catch (error) {
+                    console.error('[DEBUG] Error in handleEditAvatar:', error);
+                }
+            });
+            console.log('[Init] btn-edit-avatar listener registered');
+        }
+
+        // Avatar creator
+        const btnSaveAvatar = document.getElementById('btn-save-avatar');
+        if (btnSaveAvatar) {
+            addVisualFeedback('btn-save-avatar');
+            btnSaveAvatar.addEventListener('click', (e) => {
+                console.log('[DEBUG] Click on btn-save-avatar');
+                try {
+                    handleSaveAvatar(e);
+                } catch (error) {
+                    console.error('[DEBUG] Error in handleSaveAvatar:', error);
+                }
+            });
+            console.log('[Init] btn-save-avatar listener registered');
+        }
+
+        const btnCancelAvatar = document.getElementById('btn-cancel-avatar');
+        if (btnCancelAvatar) {
+            addVisualFeedback('btn-cancel-avatar');
+            btnCancelAvatar.addEventListener('click', () => {
+                console.log('[DEBUG] Click on btn-cancel-avatar');
+                UI.showScreen('start');
+            });
+            console.log('[Init] btn-cancel-avatar listener registered');
+        }
+
+        // Avatar controls
+        const avatarControls = [
+            'face-shape', 'skin-tone', 'eye-style', 'eye-color',
+            'eyebrow-style', 'nose-style', 'mouth-style', 'hair-style',
+            'hair-color', 'accessory'
+        ];
+
+        avatarControls.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('change', () => {
+                    console.log(`[DEBUG] Avatar control changed: ${id}`);
+                    try {
+                        AvatarSystem.init();
+                        AvatarSystem.drawAvatar(AvatarSystem.getAvatarFromForm());
+                    } catch (error) {
+                        console.error(`[DEBUG] Error in avatar control ${id}:`, error);
+                    }
+                });
+                console.log(`[Init] Avatar control listener registered: ${id}`);
+            } else {
+                console.warn(`[Init] Avatar control not found: ${id}`);
+            }
+        });
+
+        // Lobby
+        const btnConfigureGame = document.getElementById('btn-configure-game');
+        if (btnConfigureGame) {
+            addVisualFeedback('btn-configure-game');
+            btnConfigureGame.addEventListener('click', (e) => {
+                console.log('[DEBUG] Click on btn-configure-game');
+                try {
+                    handleConfigureGame(e);
+                } catch (error) {
+                    console.error('[DEBUG] Error in handleConfigureGame:', error);
+                }
+            });
+            console.log('[Init] btn-configure-game listener registered');
+        }
+
+        const btnStartGame = document.getElementById('btn-start-game');
+        if (btnStartGame) {
+            addVisualFeedback('btn-start-game');
+            btnStartGame.addEventListener('click', (e) => {
+                console.log('[DEBUG] Click on btn-start-game');
+                try {
+                    handleStartGame(e);
+                } catch (error) {
+                    console.error('[DEBUG] Error in handleStartGame:', error);
+                }
+            });
+            console.log('[Init] btn-start-game listener registered');
+        }
+
+        const btnMute = document.getElementById('btn-mute');
+        if (btnMute) {
+            addVisualFeedback('btn-mute');
+            btnMute.addEventListener('click', () => {
+                console.log('[DEBUG] Click on btn-mute');
+                Networking.toggleMute();
+            });
+            console.log('[Init] btn-mute listener registered');
+        }
+
+        const btnLeaveRoom = document.getElementById('btn-leave-room');
+        if (btnLeaveRoom) {
+            addVisualFeedback('btn-leave-room');
+            btnLeaveRoom.addEventListener('click', (e) => {
+                console.log('[DEBUG] Click on btn-leave-room');
+                try {
+                    handleLeaveRoom(e);
+                } catch (error) {
+                    console.error('[DEBUG] Error in handleLeaveRoom:', error);
+                }
+            });
+            console.log('[Init] btn-leave-room listener registered');
+        }
+
+        // Configuration
+        const btnSaveConfig = document.getElementById('btn-save-config');
+        if (btnSaveConfig) {
+            addVisualFeedback('btn-save-config');
+            btnSaveConfig.addEventListener('click', (e) => {
+                console.log('[DEBUG] Click on btn-save-config');
+                try {
+                    handleSaveConfig(e);
+                } catch (error) {
+                    console.error('[DEBUG] Error in handleSaveConfig:', error);
+                }
+            });
+            console.log('[Init] btn-save-config listener registered');
+        }
+
+        const btnCancelConfig = document.getElementById('btn-cancel-config');
+        if (btnCancelConfig) {
+            addVisualFeedback('btn-cancel-config');
+            btnCancelConfig.addEventListener('click', () => {
+                console.log('[DEBUG] Click on btn-cancel-config');
+                UI.showScreen('lobby');
+            });
+            console.log('[Init] btn-cancel-config listener registered');
+        }
+
+        // Character selection
+        const btnSearchAnime = document.getElementById('btn-search-anime');
+        if (btnSearchAnime) {
+            addVisualFeedback('btn-search-anime');
+            btnSearchAnime.addEventListener('click', (e) => {
+                console.log('[DEBUG] Click on btn-search-anime');
+                try {
+                    handleSearchAnime(e);
+                } catch (error) {
+                    console.error('[DEBUG] Error in handleSearchAnime:', error);
+                }
+            });
+            console.log('[Init] btn-search-anime listener registered');
+        }
+
+        const btnConfirmPool = document.getElementById('btn-confirm-pool');
+        if (btnConfirmPool) {
+            addVisualFeedback('btn-confirm-pool');
+            btnConfirmPool.addEventListener('click', (e) => {
+                console.log('[DEBUG] Click on btn-confirm-pool');
+                try {
+                    handleConfirmPool(e);
+                } catch (error) {
+                    console.error('[DEBUG] Error in handleConfirmPool:', error);
+                }
+            });
+            console.log('[Init] btn-confirm-pool listener registered');
+        }
+
+        const btnCancelPool = document.getElementById('btn-cancel-pool');
+        if (btnCancelPool) {
+            addVisualFeedback('btn-cancel-pool');
+            btnCancelPool.addEventListener('click', () => {
+                console.log('[DEBUG] Click on btn-cancel-pool');
+                UI.showScreen('lobby');
+            });
+            console.log('[Init] btn-cancel-pool listener registered');
+        }
+
+        const btnProposeCharacters = document.getElementById('btn-propose-characters');
+        if (btnProposeCharacters) {
+            addVisualFeedback('btn-propose-characters');
+            btnProposeCharacters.addEventListener('click', () => {
+                console.log('[DEBUG] Click on btn-propose-characters');
+                UI.showScreen('selection');
+            });
+            console.log('[Init] btn-propose-characters listener registered');
+        }
+
+        // HUD bidding
+        document.querySelectorAll('.bid-btn').forEach(btn => {
+            addVisualFeedback(btn);
+            btn.addEventListener('click', () => {
+                console.log('[DEBUG] Click on bid-btn');
+                const amount = btn.dataset.amount;
+                if (amount === 'max') {
+                    const player = GameState.players.get(GameState.peer.id);
+                    if (player) {
+                        Networking.placeBid(player.money);
+                    }
+                } else {
+                    Networking.placeBid(parseInt(amount) + GameState.currentBid);
+                }
+            });
+        });
+        console.log('[Init] bid-btn listeners registered');
+
+        const skipBtn = document.querySelector('.skip-btn');
+        if (skipBtn) {
+            addVisualFeedback(skipBtn);
+            skipBtn.addEventListener('click', () => {
+                console.log('[DEBUG] Click on skip-btn');
+                Networking.skip();
+            });
+            console.log('[Init] skip-btn listener registered');
+        }
+
+        const hudMute = document.getElementById('hud-mute');
+        if (hudMute) {
+            addVisualFeedback('hud-mute');
+            hudMute.addEventListener('click', () => {
+                console.log('[DEBUG] Click on hud-mute');
+                Networking.toggleMute();
+            });
+            console.log('[Init] hud-mute listener registered');
+        }
+
+        // End screen
+        const btnBackToStart = document.getElementById('btn-back-to-start');
+        if (btnBackToStart) {
+            addVisualFeedback('btn-back-to-start');
+            btnBackToStart.addEventListener('click', (e) => {
+                console.log('[DEBUG] Click on btn-back-to-start');
+                try {
+                    handleBackToStart(e);
+                } catch (error) {
+                    console.error('[DEBUG] Error in handleBackToStart:', error);
+                }
+            });
+            console.log('[Init] btn-back-to-start listener registered');
+        }
+
+        console.log('[Init] All event listeners registered successfully');
+
+    } catch (error) {
+        console.error('[Init] Error setting up event listeners:', error);
+    }
 }
 
 // ==================== EVENT HANDLERS ====================
@@ -2303,12 +2535,20 @@ function handleJoinRoom() {
 }
 
 function handleEditAvatar() {
-    UI.showScreen('avatar');
-    AvatarSystem.init();
-    
-    // Load existing avatar or default
-    const avatar = AvatarSystem.loadAvatar() || AvatarSystem.getAvatarFromForm();
-    AvatarSystem.drawAvatar(avatar);
+    console.log('[Event] handleEditAvatar called');
+    try {
+        console.log('[Event] Switching to avatar screen');
+        UI.showScreen('avatar');
+        AvatarSystem.init();
+
+        // Load existing avatar or default
+        const avatar = AvatarSystem.loadAvatar() || AvatarSystem.getAvatarFromForm();
+        console.log('[Event] Drawing avatar:', avatar ? 'loaded' : 'default');
+        AvatarSystem.drawAvatar(avatar);
+        console.log('[Event] Avatar screen setup complete');
+    } catch (error) {
+        console.error('[Event] Error in handleEditAvatar:', error);
+    }
 }
 
 function handleSaveAvatar() {
@@ -2443,11 +2683,91 @@ function handleBackToStart() {
 }
 
 // ==================== INITIALIZATION ====================
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('[Init] DOM loaded, setting up event listeners');
-    setupEventListeners();
+
+function checkExternalScripts() {
+    console.log('[Init] Checking external scripts...');
+
+    // Check Three.js
+    if (typeof THREE === 'undefined') {
+        console.error('[Init] Three.js not loaded');
+        return false;
+    } else {
+        console.log('[Init] Three.js loaded successfully');
+    }
+
+    // Check PeerJS
+    if (typeof Peer === 'undefined') {
+        console.error('[Init] PeerJS not loaded');
+        return false;
+    } else {
+        console.log('[Init] PeerJS loaded successfully');
+    }
+
+    return true;
+}
+
+function addVisualFeedback(elementId) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.addEventListener('click', () => {
+            console.log(`[DEBUG] Visual feedback on ${elementId}`);
+            element.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                element.style.transform = 'scale(1)';
+            }, 100);
+        });
+    } else {
+        console.error(`[DEBUG] Cannot add visual feedback - element not found: ${elementId}`);
+    }
+}
+
+function initGame() {
+    if (window.gameInitialized) {
+        console.log('[Init] Game already initialized, skipping');
+        return;
+    }
+
+    console.log('[Init] Starting game initialization...');
+    window.gameInitialized = true;
+
+    // Check external scripts
+    if (!checkExternalScripts()) {
+        console.error('[Init] External scripts failed to load, game may not work properly');
+    }
+
+    // Setup event listeners
+    try {
+        setupEventListeners();
+    } catch (error) {
+        console.error('[Init] Error setting up event listeners:', error);
+    }
 
     // Load saved avatar if exists
-    AvatarSystem.loadAvatar();
+    try {
+        AvatarSystem.loadAvatar();
+    } catch (error) {
+        console.error('[Init] Error loading avatar:', error);
+    }
+
     console.log('[Init] Initialization complete');
+}
+
+// Primary initialization
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('[Init] DOMContentLoaded event fired');
+    initGame();
+});
+
+// Fallback if DOMContentLoaded doesn't fire
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    console.log('[Init] DOM already loaded, initializing immediately');
+    setTimeout(initGame, 100);
+}
+
+// Final fallback
+window.addEventListener('load', () => {
+    if (!window.gameInitialized) {
+        console.log('[Init] Using load event as fallback');
+        initGame();
+    }
 });
