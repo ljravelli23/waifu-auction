@@ -1,4 +1,5 @@
 // ==================== GAME STATE ====================
+console.log('[Game] Initializing game state');
 const GameState = {
     screen: 'start', // start, avatar, lobby, config, selection, auction, end
     isHost: false,
@@ -46,12 +47,18 @@ const AvatarSystem = {
     ctx: null,
     
     init() {
+        console.log('[AvatarSystem] Initializing avatar system');
         this.canvas = document.getElementById('avatar-canvas');
         this.ctx = this.canvas.getContext('2d');
+        console.log('[AvatarSystem] Canvas initialized:', !!this.canvas, !!this.ctx);
     },
     
     drawAvatar(avatarData) {
-        if (!this.ctx) return;
+        console.log('[AvatarSystem] Drawing avatar with data:', avatarData);
+        if (!this.ctx) {
+            console.error('[AvatarSystem] Context not initialized');
+            return;
+        }
         
         const ctx = this.ctx;
         const canvas = this.canvas;
@@ -505,22 +512,27 @@ const AvatarSystem = {
     },
     
     saveAvatar() {
+        console.log('[AvatarSystem] Saving avatar to localStorage');
         const avatar = this.getAvatarFromForm();
         localStorage.setItem('subastaWaifus:avatar', JSON.stringify(avatar));
         GameState.avatar = avatar;
+        console.log('[AvatarSystem] Avatar saved successfully');
         return avatar;
     },
     
     loadAvatar() {
+        console.log('[AvatarSystem] Loading avatar from localStorage');
         const saved = localStorage.getItem('subastaWaifus:avatar');
         if (saved) {
             try {
                 GameState.avatar = JSON.parse(saved);
+                console.log('[AvatarSystem] Avatar loaded successfully');
                 return GameState.avatar;
             } catch (e) {
-                console.error('Error loading avatar:', e);
+                console.error('[AvatarSystem] Error loading avatar:', e);
             }
         }
+        console.log('[AvatarSystem] No saved avatar found');
         return null;
     },
     
@@ -549,6 +561,7 @@ const AvatarSystem = {
 // ==================== ANILIST API ====================
 const AniListAPI = {
     async searchAnime(searchTerm) {
+        console.log('[AniListAPI] Searching anime:', searchTerm);
         const query = `
             query ($search: String) {
                 Page(page: 1, perPage: 10) {
@@ -576,14 +589,16 @@ const AniListAPI = {
             });
             
             const data = await response.json();
+            console.log('[AniListAPI] Search results:', data.data.Page.media.length, 'animes found');
             return data.data.Page.media;
         } catch (error) {
-            console.error('Error searching anime:', error);
+            console.error('[AniListAPI] Error searching anime:', error);
             return [];
         }
     },
     
     async getCharacters(animeId) {
+        console.log('[AniListAPI] Getting characters for anime ID:', animeId);
         const query = `
             query ($id: Int) {
                 Media(id: $id, type: ANIME) {
@@ -617,9 +632,10 @@ const AniListAPI = {
             });
             
             const data = await response.json();
+            console.log('[AniListAPI] Characters loaded:', data.data.Media.characters.edges.length, 'characters');
             return data.data.Media;
         } catch (error) {
-            console.error('Error getting characters:', error);
+            console.error('[AniListAPI] Error getting characters:', error);
             return null;
         }
     }
@@ -628,21 +644,26 @@ const AniListAPI = {
 // ==================== NETWORKING (PeerJS) ====================
 const Networking = {
     generateRoomCode() {
+        console.log('[Networking] Generating room code');
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        return Array.from({length: 4}, () => 
+        const code = Array.from({length: 4}, () =>
             letters[Math.floor(Math.random() * letters.length)]
         ).join('');
+        console.log('[Networking] Generated code:', code);
+        return code;
     },
-    
+
     async createRoom() {
+        console.log('[Networking] Creating room as host');
         let attempts = 5;
         while (attempts > 0) {
             const code = this.generateRoomCode();
             try {
+                console.log('[Networking] Attempting to create room with code:', code, 'Attempts left:', attempts);
                 GameState.peer = new Peer(code);
-                
+
                 GameState.peer.on('open', (id) => {
-                    console.log('Room created with ID:', id);
+                    console.log('[Networking] Room created successfully with ID:', id);
                     GameState.roomCode = id;
                     GameState.isHost = true;
                     GameState.hostId = id;
@@ -654,93 +675,99 @@ const Networking = {
                 });
                 
                 GameState.peer.on('error', (err) => {
+                    console.error('[Networking] PeerJS error:', err.type, err.message);
                     if (err.type === 'unavailable-id' && attempts > 0) {
+                        console.log('[Networking] ID unavailable, retrying...');
                         attempts--;
                         GameState.peer.destroy();
                     } else {
-                        console.error('PeerJS error:', err);
+                        console.error('[Networking] Critical PeerJS error:', err);
                         UI.showError('Error al crear la sala: ' + err.message);
                     }
                 });
-                
+
                 return; // Success
             } catch (error) {
-                console.error('Error creating room:', error);
+                console.error('[Networking] Error creating room:', error);
                 attempts--;
             }
         }
-        
+
+        console.error('[Networking] Failed to create room after all attempts');
         UI.showError('No se pudo crear una sala. Intenta nuevamente.');
     },
-    
+
     async joinRoom(roomCode) {
+        console.log('[Networking] Joining room with code:', roomCode);
         try {
             GameState.peer = new Peer();
-            
+
             GameState.peer.on('open', () => {
-                console.log('Connecting to room:', roomCode);
+                console.log('[Networking] Peer opened, connecting to room:', roomCode);
                 const conn = GameState.peer.connect(roomCode);
-                
+
                 conn.on('open', () => {
-                    console.log('Connected to host');
+                    console.log('[Networking] Connected to host successfully');
                     GameState.hostId = roomCode;
                     this.handleConnection(conn);
                     this.sendJoinRequest(conn);
                 });
-                
+
                 conn.on('error', (err) => {
-                    console.error('Connection error:', err);
+                    console.error('[Networking] Connection error:', err);
                     UI.showError('Error al conectar: ' + err.message);
                 });
             });
-            
+
             GameState.peer.on('error', (err) => {
-                console.error('PeerJS error:', err);
+                console.error('[Networking] PeerJS error:', err);
                 UI.showError('Error de conexión: ' + err.message);
             });
-            
+
         } catch (error) {
-            console.error('Error joining room:', error);
+            console.error('[Networking] Error joining room:', error);
             UI.showError('Error al unirse a la sala');
         }
     },
     
     handleConnection(conn) {
         const playerId = conn.peer;
+        console.log('[Networking] Handling connection from player:', playerId);
         GameState.connections.set(playerId, conn);
-        
+
         conn.on('data', (data) => {
             this.handleMessage(data, playerId);
         });
-        
+
         conn.on('close', () => {
-            console.log('Player disconnected:', playerId);
+            console.log('[Networking] Player disconnected:', playerId);
             GameState.connections.delete(playerId);
             GameState.players.delete(playerId);
             this.removeAudioConnection(playerId);
             UI.updatePlayerList();
-            
+
             if (GameState.isHost) {
                 this.broadcastState();
             }
         });
-        
+
         if (GameState.isHost) {
-            // Send current state to new player
+            console.log('[Networking] Sending current state to new player:', playerId);
             this.sendStateToPlayer(conn);
         }
     },
-    
+
     sendJoinRequest(conn) {
+        console.log('[Networking] Sending join request');
         conn.send({
             tipo: 'JOIN_REQUEST',
             nombre: GameState.playerName,
             avatar: GameState.avatar
         });
     },
-    
+
     handleMessage(data, senderId) {
-        console.log('Received message:', data, 'from:', senderId);
+        console.log('[Networking] Received message type:', data.tipo, 'from:', senderId, 'data:', data);
         
         switch (data.tipo) {
             case 'JOIN_REQUEST':
@@ -808,14 +835,16 @@ const Networking = {
     },
     
     handlePlayerJoin(playerId, data) {
+        console.log('[Networking] Handling player join:', playerId, data.nombre);
         if (GameState.players.size >= GameState.config.maxPlayers) {
+            console.log('[Networking] Room full, rejecting player:', playerId);
             const conn = GameState.connections.get(playerId);
             if (conn && conn.open) {
                 conn.send({ tipo: 'JOIN_REJECTED', razon: 'La sala está llena' });
             }
             return;
         }
-        
+
         const player = {
             id: playerId,
             nombre: data.nombre,
@@ -823,11 +852,12 @@ const Networking = {
             money: GameState.config.initialMoney,
             collection: []
         };
-        
+
         GameState.players.set(playerId, player);
+        console.log('[Networking] Player added. Total players:', GameState.players.size);
         UI.updatePlayerList();
         this.broadcastState();
-        
+
         // Setup voice chat
         this.setupVoiceChat(playerId);
     },
@@ -841,22 +871,28 @@ const Networking = {
     },
     
     setupVoiceChat(targetId) {
-        if (!GameState.localStream) return;
-        
+        console.log('[Networking] Setting up voice chat with:', targetId);
+        if (!GameState.localStream) {
+            console.warn('[Networking] No local stream available for voice chat');
+            return;
+        }
+
         const call = GameState.peer.call(targetId, GameState.localStream);
-        
+
         call.on('stream', (remoteStream) => {
+            console.log('[Networking] Received audio stream from:', targetId);
             this.playAudio(targetId, remoteStream);
         });
-        
+
         GameState.audioConnections.set(targetId, call);
     },
-    
+
     playAudio(peerId, stream) {
+        console.log('[Networking] Playing audio from:', peerId);
         const audio = new Audio();
         audio.srcObject = stream;
         audio.play();
-        
+
         // Store audio element to manage it
         if (!GameState.audioElements) {
             GameState.audioElements = new Map();
@@ -884,31 +920,36 @@ const Networking = {
     },
     
     async initializeVoiceChat() {
+        console.log('[Networking] Initializing voice chat');
         try {
             GameState.localStream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
                 video: false
             });
-            
+            console.log('[Networking] Microphone access granted');
+
             GameState.peer.on('call', (call) => {
+                console.log('[Networking] Incoming call from:', call.peer);
                 call.answer(GameState.localStream);
                 call.on('stream', (remoteStream) => {
                     this.playAudio(call.peer, remoteStream);
                 });
             });
-            
+
         } catch (error) {
-            console.error('Error accessing microphone:', error);
+            console.error('[Networking] Error accessing microphone:', error);
             UI.showError('No se pudo acceder al micrófono');
         }
     },
-    
+
     toggleMute() {
+        console.log('[Networking] Toggle mute, current state:', GameState.isMuted);
         if (GameState.localStream) {
             const audioTrack = GameState.localStream.getAudioTracks()[0];
             if (audioTrack) {
                 audioTrack.enabled = !audioTrack.enabled;
                 GameState.isMuted = !audioTrack.enabled;
+                console.log('[Networking] Mute state changed to:', GameState.isMuted);
                 UI.updateMuteButton(GameState.isMuted);
             }
         }
@@ -969,50 +1010,68 @@ const Networking = {
     
     // Game messages (host side)
     handleBid(playerId, amount) {
+        console.log('[Networking] Handling bid from:', playerId, 'amount:', amount);
         if (!this.validateBid(playerId, amount)) {
+            console.log('[Networking] Bid validation failed');
             return; // Invalid bid, don't broadcast
         }
-        
+
         GameState.currentBid = amount;
         GameState.currentBidder = playerId;
-        
+
         // Reset soft close timer
         this.resetBidTimer();
-        
+
         const message = {
             tipo: 'BID_UPDATE',
             jugadorId: playerId,
             monto: amount,
             cierreSuaveHasta: Date.now() + 10000 // 10 seconds
         };
-        
+
+        console.log('[Networking] Broadcasting bid update');
         this.broadcast(message);
         UI.updateBidDisplay(amount, playerId);
     },
     
     validateBid(playerId, amount) {
+        console.log('[Networking] Validating bid:', playerId, amount, 'current bid:', GameState.currentBid);
         const player = GameState.players.get(playerId);
-        if (!player) return false;
-        
+        if (!player) {
+            console.log('[Networking] Validation failed: Player not found');
+            return false;
+        }
+
         // Check if bid is higher than current
-        if (amount <= GameState.currentBid) return false;
-        
+        if (amount <= GameState.currentBid) {
+            console.log('[Networking] Validation failed: Bid not higher than current');
+            return false;
+        }
+
         // Check if player has enough money
-        if (amount > player.money) return false;
-        
+        if (amount > player.money) {
+            console.log('[Networking] Validation failed: Insufficient funds');
+            return false;
+        }
+
         // Check turn-based mode
         if (GameState.config.bidMode === 'turns' && GameState.currentBid === 0) {
             const currentPlayerIndex = (GameState.currentRound - 1) % GameState.players.size;
             const playersArray = Array.from(GameState.players.keys());
             const currentPlayerId = playersArray[currentPlayerIndex];
-            if (playerId !== currentPlayerId) return false;
+            if (playerId !== currentPlayerId) {
+                console.log('[Networking] Validation failed: Not player\'s turn');
+                return false;
+            }
         }
-        
+
         // Check max waifus limit
         if (!GameState.config.unlimitedWaifus && player.collection.length >= GameState.config.maxWaifus) {
+            console.log('[Networking] Validation failed: Max waifus limit reached');
             return false;
         }
-        
+
+        console.log('[Networking] Bid validation passed');
         return true;
     },
     
@@ -1032,17 +1091,19 @@ const Networking = {
     },
     
     startRound() {
+        console.log('[Networking] Starting round:', GameState.currentRound + 1);
         if (GameState.characterPool.length === 0) {
+            console.log('[Networking] No characters left, ending game');
             this.endGame();
             return;
         }
-        
+
         GameState.currentRound++;
-        
+
         // Select character based on game mode
         let character;
         let soloAnime = false;
-        
+
         switch (GameState.config.gameMode) {
             case 'random':
             case 'blind':
@@ -1057,20 +1118,23 @@ const Networking = {
                 character = GameState.characterPool[choiceIndex];
                 break;
         }
-        
+
         GameState.currentCharacter = character;
         GameState.currentBid = 0;
         GameState.currentBidder = null;
         GameState.roundPhase = 'bidding';
-        
+
+        console.log('[Networking] Selected character:', character.name, 'soloAnime:', soloAnime);
+
         // Determine who opens the bid in turn mode
         let openerId = null;
         if (GameState.config.bidMode === 'turns') {
             const playersArray = Array.from(GameState.players.keys());
             const openerIndex = (GameState.currentRound - 1) % playersArray.length;
             openerId = playersArray[openerIndex];
+            console.log('[Networking] Turn mode, opener:', openerId);
         }
-        
+
         const message = {
             tipo: 'ROUND_START',
             personaje: character,
@@ -1078,10 +1142,11 @@ const Networking = {
             numeroRonda: GameState.currentRound,
             jugadorQueAbre: openerId
         };
-        
+
+        console.log('[Networking] Broadcasting round start');
         this.broadcast(message);
         UI.startRound(character, soloAnime, GameState.currentRound, openerId);
-        
+
         // Start no-bid timeout
         this.startNoBidTimeout();
     },
@@ -1110,6 +1175,7 @@ const Networking = {
     },
     
     endRound() {
+        console.log('[Networking] Ending round, winner:', GameState.currentBidder, 'amount:', GameState.currentBid);
         if (GameState.currentBidder && GameState.currentCharacter) {
             // Award character to winner
             const winner = GameState.players.get(GameState.currentBidder);
@@ -1119,29 +1185,33 @@ const Networking = {
                     ...GameState.currentCharacter,
                     price: GameState.currentBid
                 });
-                
+
                 // Remove character from pool
                 const characterIndex = GameState.characterPool.indexOf(GameState.currentCharacter);
                 if (characterIndex > -1) {
                     GameState.characterPool.splice(characterIndex, 1);
                 }
+                console.log('[Networking] Character awarded to:', winner.nombre, 'remaining money:', winner.money);
             }
         }
-        
+
         const message = {
             tipo: 'ROUND_END',
             ganadorId: GameState.currentBidder,
             personaje: GameState.currentCharacter,
             precioFinal: GameState.currentBid
         };
-        
+
+        console.log('[Networking] Broadcasting round end');
         this.broadcast(message);
         UI.endRound(GameState.currentBidder, GameState.currentCharacter, GameState.currentBid);
-        
+
         // Check if game should end
         if (this.shouldEndGame()) {
+            console.log('[Networking] Game should end');
             setTimeout(() => this.endGame(), 2000);
         } else {
+            console.log('[Networking] Starting next round in 3 seconds');
             setTimeout(() => this.startRound(), 3000);
         }
     },
@@ -1388,8 +1458,12 @@ const ThreeJSRoom = {
     playerSprites: new Map(),
     
     initialize() {
+        console.log('[ThreeJSRoom] Initializing 3D room');
         const container = document.getElementById('three-container');
-        if (!container) return;
+        if (!container) {
+            console.error('[ThreeJSRoom] Container not found');
+            return;
+        }
         
         // Scene
         this.scene = new THREE.Scene();
@@ -1653,26 +1727,31 @@ const ThreeJSRoom = {
 // ==================== UI MANAGEMENT ====================
 const UI = {
     showScreen(screenName) {
+        console.log('[UI] Switching to screen:', screenName);
         document.querySelectorAll('.screen').forEach(screen => {
             screen.classList.add('hidden');
         });
-        
+
         const targetScreen = document.getElementById(screenName + '-screen');
         if (targetScreen) {
             targetScreen.classList.remove('hidden');
+        } else {
+            console.error('[UI] Screen not found:', screenName + '-screen');
         }
-        
+
         GameState.screen = screenName;
     },
-    
+
     showError(message) {
+        console.error('[UI] Showing error:', message);
         alert(message); // Simple error display
     },
     
     showRoomCode(code) {
+        console.log('[UI] Showing room code:', code);
         document.getElementById('display-room-code').textContent = code;
         this.showScreen('lobby');
-        
+
         if (GameState.isHost) {
             document.getElementById('host-info').classList.remove('hidden');
             document.getElementById('host-controls').classList.remove('hidden');
@@ -1680,8 +1759,12 @@ const UI = {
     },
     
     updatePlayerList() {
+        console.log('[UI] Updating player list, total players:', GameState.players.size);
         const list = document.getElementById('players-list');
-        if (!list) return;
+        if (!list) {
+            console.error('[UI] Player list element not found');
+            return;
+        }
         
         list.innerHTML = '';
         GameState.players.forEach((player) => {
@@ -1716,6 +1799,7 @@ const UI = {
         const startButton = document.getElementById('btn-start-game');
         if (startButton && GameState.isHost) {
             startButton.disabled = GameState.players.size < 2;
+            console.log('[UI] Start button enabled:', !startButton.disabled);
         }
         
         const proposeBtn = document.getElementById('btn-propose-characters');
@@ -2158,51 +2242,62 @@ function setupEventListeners() {
 
 // ==================== EVENT HANDLERS ====================
 function handleCreateRoom() {
+    console.log('[Event] handleCreateRoom called');
     const name = document.getElementById('player-name').value.trim();
     if (!name) {
+        console.error('[Event] No name provided');
         UI.showError('Por favor ingresa tu nombre');
         return;
     }
-    
+
     GameState.playerName = name;
-    
+    console.log('[Event] Player name set:', name);
+
     // Check for avatar
     if (!AvatarSystem.loadAvatar()) {
+        console.log('[Event] No avatar found, showing avatar creator');
         UI.showScreen('avatar');
         AvatarSystem.init();
         AvatarSystem.drawAvatar(AvatarSystem.getAvatarFromForm());
         return;
     }
-    
+
+    console.log('[Event] Creating room and initializing voice chat');
     Networking.createRoom();
     Networking.initializeVoiceChat();
 }
 
 function handleJoinRoom() {
+    console.log('[Event] handleJoinRoom called');
     const name = document.getElementById('player-name').value.trim();
     const code = document.getElementById('room-code').value.trim().toUpperCase();
-    
+
     if (!name) {
+        console.error('[Event] No name provided');
         UI.showError('Por favor ingresa tu nombre');
         return;
     }
-    
+
     if (code.length !== 4) {
+        console.error('[Event] Invalid room code length:', code.length);
         UI.showError('El código debe tener 4 letras');
         return;
     }
-    
+
     GameState.playerName = name;
     GameState.roomCode = code;
-    
+    console.log('[Event] Joining room:', code, 'as:', name);
+
     // Check for avatar
     if (!AvatarSystem.loadAvatar()) {
+        console.log('[Event] No avatar found, showing avatar creator');
         UI.showScreen('avatar');
         AvatarSystem.init();
         AvatarSystem.drawAvatar(AvatarSystem.getAvatarFromForm());
         return;
     }
-    
+
+    console.log('[Event] Joining room and initializing voice chat');
     Networking.joinRoom(code);
     Networking.initializeVoiceChat();
 }
@@ -2257,12 +2352,15 @@ function handleSaveConfig() {
 }
 
 async function handleStartGame() {
+    console.log('[Event] handleStartGame called');
     if (GameState.characterPool.length === 0) {
+        console.log('[Event] No characters in pool, showing selection screen');
         // Need to select characters first
         UI.showScreen('selection');
         return;
     }
-    
+
+    console.log('[Event] Starting game with', GameState.characterPool.length, 'characters');
     GameState.isGameRunning = true;
     
     // Initialize players' money
@@ -2318,21 +2416,25 @@ function handleConfirmPool() {
 }
 
 function handleLeaveRoom() {
+    console.log('[Event] handleLeaveRoom called, cleaning up');
     // Clean up
     if (GameState.peer) {
+        console.log('[Event] Destroying peer connection');
         GameState.peer.destroy();
     }
-    
+
     if (ThreeJSRoom) {
+        console.log('[Event] Cleaning up 3D room');
         ThreeJSRoom.cleanup();
     }
-    
+
     // Reset state
     GameState.connections.clear();
     GameState.players.clear();
     GameState.audioConnections.clear();
     GameState.isGameRunning = false;
-    
+
+    console.log('[Event] Returning to start screen');
     UI.showScreen('start');
 }
 
@@ -2342,8 +2444,10 @@ function handleBackToStart() {
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[Init] DOM loaded, setting up event listeners');
     setupEventListeners();
-    
+
     // Load saved avatar if exists
     AvatarSystem.loadAvatar();
+    console.log('[Init] Initialization complete');
 });
