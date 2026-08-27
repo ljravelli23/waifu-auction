@@ -749,6 +749,10 @@ const Networking = {
                 }
                 break;
                 
+            case 'JOIN_REJECTED':
+                UI.showError(data.razon || 'No se pudo unir a la sala');
+                break;
+                
             case 'ROOM_STATE':
                 this.handleRoomState(data);
                 break;
@@ -805,7 +809,10 @@ const Networking = {
     
     handlePlayerJoin(playerId, data) {
         if (GameState.players.size >= GameState.config.maxPlayers) {
-            // Room full - could send rejection message
+            const conn = GameState.connections.get(playerId);
+            if (conn && conn.open) {
+                conn.send({ tipo: 'JOIN_REJECTED', razon: 'La sala está llena' });
+            }
             return;
         }
         
@@ -823,6 +830,14 @@ const Networking = {
         
         // Setup voice chat
         this.setupVoiceChat(playerId);
+    },
+    
+    handleCharacterProposal(playerId, character) {
+        const yaExiste = GameState.characterPool.some(c => c.id === character.id);
+        if (!yaExiste) {
+            GameState.characterPool.push(character);
+        }
+        this.broadcastState();
     },
     
     setupVoiceChat(targetId) {
@@ -912,7 +927,10 @@ const Networking = {
             tipo: 'ROOM_STATE',
             jugadores: Array.from(GameState.players.values()),
             configuracion: GameState.config,
-            fase: GameState.isGameRunning ? 'playing' : 'lobby'
+            fase: GameState.isGameRunning ? 'playing' : 'lobby',
+            hostAvatar: GameState.avatar,
+            hostName: GameState.playerName,
+            poolSize: GameState.characterPool.length
         };
         this.broadcast(state);
     },
@@ -922,7 +940,10 @@ const Networking = {
             tipo: 'ROOM_STATE',
             jugadores: Array.from(GameState.players.values()),
             configuracion: GameState.config,
-            fase: GameState.isGameRunning ? 'playing' : 'lobby'
+            fase: GameState.isGameRunning ? 'playing' : 'lobby',
+            hostAvatar: GameState.avatar,
+            hostName: GameState.playerName,
+            poolSize: GameState.characterPool.length
         };
         conn.send(state);
     },
@@ -934,6 +955,9 @@ const Networking = {
             GameState.players.set(player.id, player);
         });
         GameState.config = data.configuracion;
+        GameState.hostAvatarData = data.hostAvatar || GameState.hostAvatarData;
+        GameState.hostNameDisplay = data.hostName || GameState.hostNameDisplay;
+        GameState.poolSize = data.poolSize || 0;
         
         UI.updatePlayerList();
         
@@ -978,7 +1002,7 @@ const Networking = {
         
         // Check turn-based mode
         if (GameState.config.bidMode === 'turns' && GameState.currentBid === 0) {
-            const currentPlayerIndex = GameState.currentRound % GameState.players.size;
+            const currentPlayerIndex = (GameState.currentRound - 1) % GameState.players.size;
             const playersArray = Array.from(GameState.players.keys());
             const currentPlayerId = playersArray[currentPlayerIndex];
             if (playerId !== currentPlayerId) return false;
@@ -1027,8 +1051,8 @@ const Networking = {
                 soloAnime = GameState.config.gameMode === 'blind';
                 break;
             case 'choice':
-                // In choice mode, host selects character
-                // For now, use random as fallback
+                // En modo Elección el pool ya lo arman los jugadores (PROPONER_PERSONAJE);
+                // cada ronda se toma uno al azar de ese pool colaborativo.
                 const choiceIndex = Math.floor(Math.random() * GameState.characterPool.length);
                 character = GameState.characterPool[choiceIndex];
                 break;
@@ -1152,44 +1176,116 @@ const Networking = {
     },
     
     startVoting() {
-        // Implement voting logic based on config
-        const voteMode = GameState.config.voteMode;
+        const mode = GameState.config.voteMode;
+        GameState.voting = { mode, items: [], currentIndex: 0, votesReceived: new Map(), results: [] };
         
-        // For now, implement simple price mode
-        this.startPriceVoting();
-    },
-    
-    startPriceVoting() {
-        // Find most expensive purchase from each player
-        const items = [];
-        GameState.players.forEach((player, id) => {
-            if (player.collection.length > 0) {
-                const mostExpensive = player.collection.reduce((a, b) => 
-                    (a.price > b.price) ? a : b
-                );
-                items.push({
-                    playerId: id,
-                    playerName: player.nombre,
-                    character: mostExpensive
-                });
-            }
-        });
-        
-        if (items.length > 0) {
-            const message = {
-                tipo: 'VOTE_PROMPT',
-                items: items,
-                modo: 'price'
-            };
-            
-            this.broadcast(message);
-            UI.showVoting(items, 'price');
+        if (mode === 'onebyone') {
+            this.startOneByOneVoting();
+        } else {
+            // 'price' y 'round' comparten la misma mecánica: comparar un ítem por jugador
+            this.startCompareVoting(mode);
         }
     },
     
+    startCompareVoting(mode) {
+        const items = [];
+        GameState.players.forEach((player, id) => {
+            if (player.collection.length === 0) return;
+            const character = mode === 'round'
+                ? player.collection[0] // primera compra
+                : player.collection.reduce((a, b) => (a.price > b.price ? a : b)); // más cara
+            items.push({ playerId: id, playerName: player.nombre, character });
+        });
+        
+        if (items.length === 0) {
+            this.finishVoting(null);
+            return;
+        }
+        
+        GameState.voting.items = items;
+        GameState.voting.votesReceived = new Map();
+        
+        this.broadcast({ tipo: 'VOTE_PROMPT', items, modo: mode });
+        UI.showVoting(items, mode);
+    },
+    
+    startOneByOneVoting() {
+        const items = [];
+        GameState.players.forEach((player, id) => {
+            player.collection.forEach(character => {
+                items.push({ playerId: id, playerName: player.nombre, character });
+            });
+        });
+        
+        if (items.length === 0) {
+            this.finishVoting(null);
+            return;
+        }
+        
+        GameState.voting.items = items;
+        GameState.voting.currentIndex = 0;
+        this.presentNextOneByOneItem();
+    },
+    
+    presentNextOneByOneItem() {
+        if (GameState.voting.currentIndex >= GameState.voting.items.length) {
+            const mejor = GameState.voting.results.length > 0
+                ? GameState.voting.results.reduce((a, b) => (b.promedio > a.promedio ? b : a))
+                : null;
+            this.finishVoting(mejor);
+            return;
+        }
+        
+        GameState.voting.votesReceived = new Map();
+        const item = GameState.voting.items[GameState.voting.currentIndex];
+        this.broadcast({ tipo: 'VOTE_PROMPT', items: [item], modo: 'onebyone' });
+        UI.showVoting([item], 'onebyone');
+    },
+    
     handleVote(playerId, data) {
-        // Collect votes and determine winner
-        // Implementation depends on voting mode
+        if (!GameState.voting) return;
+        GameState.voting.votesReceived.set(playerId, data.valor);
+        
+        if (GameState.voting.votesReceived.size >= GameState.players.size) {
+            this.tallyCurrentVote();
+        }
+    },
+    
+    tallyCurrentVote() {
+        const mode = GameState.voting.mode;
+        const votos = Array.from(GameState.voting.votesReceived.values()).filter(v => v !== 'skip');
+        
+        if (mode === 'onebyone') {
+            const item = GameState.voting.items[GameState.voting.currentIndex];
+            const calificaciones = votos.filter(v => typeof v === 'number');
+            const promedio = calificaciones.length > 0
+                ? calificaciones.reduce((a, b) => a + b, 0) / calificaciones.length
+                : 0;
+            const resultado = { item, promedio, totalVotos: calificaciones.length };
+            GameState.voting.results.push(resultado);
+            
+            this.broadcast({ tipo: 'VOTE_RESULT', resultado, esFinal: false });
+            UI.showVoteResults(resultado, false);
+            
+            GameState.voting.currentIndex++;
+            setTimeout(() => this.presentNextOneByOneItem(), 3000);
+        } else {
+            const conteo = {};
+            votos.forEach(id => { conteo[id] = (conteo[id] || 0) + 1; });
+            let ganadorId = null, maxVotos = -1;
+            Object.entries(conteo).forEach(([id, n]) => {
+                if (n > maxVotos) { maxVotos = n; ganadorId = id; }
+            });
+            const ganador = GameState.voting.items.find(i => i.playerId === ganadorId) || null;
+            const resultado = ganador ? { ganador, totalVotos: votos.length } : null;
+            
+            this.finishVoting(resultado);
+        }
+    },
+    
+    finishVoting(resultado) {
+        this.broadcast({ tipo: 'VOTE_RESULT', resultado, esFinal: true });
+        UI.showVoteResults(resultado, true);
     },
     
     // Client-side message handlers
@@ -1210,9 +1306,10 @@ const Networking = {
     },
     
     handleRoundEnd(data) {
-        // Update local player state
-        if (data.ganadorId === GameState.peer.id) {
-            const player = GameState.players.get(GameState.peer.id);
+        // Actualizar el estado local de quien haya ganado (no solo si soy yo),
+        // para que todos vean dinero/colección al día en todo momento
+        if (data.ganadorId) {
+            const player = GameState.players.get(data.ganadorId);
             if (player) {
                 player.money -= data.precioFinal;
                 player.collection.push({
@@ -1236,7 +1333,7 @@ const Networking = {
     },
     
     handleVoteResult(data) {
-        UI.showVoteResults(data);
+        UI.showVoteResults(data.resultado, data.esFinal);
     },
     
     // Bid placement (client-side)
@@ -1331,6 +1428,9 @@ const ThreeJSRoom = {
         
         // Add players
         this.addPlayersToScene();
+        
+        // Add el anfitrión como presentador junto al podio
+        this.addHostToScene();
         
         // Handle resize
         window.addEventListener('resize', () => this.onWindowResize());
@@ -1472,6 +1572,22 @@ const ThreeJSRoom = {
         });
     },
     
+    addHostToScene() {
+        // El anfitrión no está en GameState.players (no puja), así que se dibuja
+        // aparte, junto al podio, usando su propio avatar o el que llegó por
+        // ROOM_STATE si quien mira la escena es un jugador invitado.
+        const avatarData = GameState.isHost ? GameState.avatar : GameState.hostAvatarData;
+        if (!avatarData) return;
+        
+        const texture = AvatarSystem.createAvatarTexture(avatarData);
+        const material = new THREE.SpriteMaterial({ map: texture });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(1.3, 1.3, 1.3);
+        sprite.position.set(0, 2.3, -1.6);
+        this.scene.add(sprite);
+        this.hostSprite = sprite;
+    },
+    
     updateCharacterScreen(imageUrl) {
         const screen = this.scene.getObjectByName('characterScreen');
         if (screen && imageUrl) {
@@ -1601,6 +1717,21 @@ const UI = {
         if (startButton && GameState.isHost) {
             startButton.disabled = GameState.players.size < 2;
         }
+        
+        const proposeBtn = document.getElementById('btn-propose-characters');
+        if (proposeBtn) {
+            proposeBtn.classList.toggle('hidden', GameState.isHost || GameState.config.gameMode !== 'choice');
+        }
+        const poolProgress = document.getElementById('pool-progress');
+        if (poolProgress) {
+            if (!GameState.isHost && GameState.config.gameMode === 'choice') {
+                poolProgress.classList.remove('hidden');
+                const countSpan = document.getElementById('pool-progress-count');
+                if (countSpan) countSpan.textContent = GameState.poolSize || 0;
+            } else {
+                poolProgress.classList.add('hidden');
+            }
+        }
     },
     
     updateMuteButton(isMuted) {
@@ -1720,8 +1851,12 @@ const UI = {
         
         const confirmBtn = document.getElementById('btn-confirm-pool');
         if (confirmBtn) {
-            const minRounds = GameState.config.unlimitedRounds ? 1 : GameState.config.maxRounds;
-            confirmBtn.disabled = GameState.characterPool.length < minRounds;
+            if (GameState.isHost) {
+                const minRounds = GameState.config.unlimitedRounds ? 1 : GameState.config.maxRounds;
+                confirmBtn.disabled = GameState.characterPool.length < minRounds;
+            } else {
+                confirmBtn.disabled = GameState.characterPool.length < 1;
+            }
         }
     },
     
@@ -1799,15 +1934,23 @@ const UI = {
         // Could show a temporary overlay
         console.log(message);
         
-        // Update collections display if we're the winner
-        if (winnerId === GameState.peer.id) {
-            this.updateCollectionDisplay();
-        }
+        this.updateCollectionDisplay();
     },
     
     updateCollectionDisplay() {
-        // Update mini collection display under player's seat
-        // This would require updating the 3D scene
+        const container = document.getElementById('hud-my-collection');
+        const countEl = document.getElementById('hud-waifu-count');
+        if (!GameState.peer) return;
+        
+        const me = GameState.players.get(GameState.peer.id);
+        if (!me) return; // el anfitrión no tiene colección propia
+        
+        if (countEl) countEl.textContent = `${me.collection.length} 🎴`;
+        if (container) {
+            container.innerHTML = me.collection.map(item =>
+                `<img src="${item.image}" alt="${item.name}" class="hud-collection-thumb" title="${item.name} ($${item.price})">`
+            ).join('');
+        }
     },
     
     showEndScreen(collections) {
@@ -1849,38 +1992,84 @@ const UI = {
         if (!section) return;
         
         section.classList.remove('hidden');
+        document.getElementById('vote-results')?.classList.add('hidden');
         
         const itemDiv = document.getElementById('vote-item');
         const controls = document.getElementById('vote-controls');
+        controls.innerHTML = '';
         
-        if (mode === 'price') {
-            // Show all items for voting
-            itemDiv.innerHTML = '<p>Vota por la mejor compra:</p>';
-            controls.innerHTML = '';
-            
-            items.forEach((item, index) => {
+        if (mode === 'onebyone') {
+            const item = items[0];
+            itemDiv.innerHTML = `
+                <p>${item.playerName} compró:</p>
+                <img src="${item.character.image}" alt="${item.character.name}">
+                <p>${item.character.name} — $${item.character.price}</p>
+                <p>Califica del 1 al 10:</p>
+            `;
+            for (let i = 1; i <= 10; i++) {
                 const btn = document.createElement('button');
-                btn.textContent = item.playerName;
-                btn.addEventListener('click', () => {
-                    Networking.submitVote(item.character.id, item.playerId);
-                });
+                btn.textContent = i;
+                btn.addEventListener('click', () => Networking.submitVote(item.character.id, i));
+                controls.appendChild(btn);
+            }
+            const skipBtn = document.createElement('button');
+            skipBtn.textContent = 'Saltar >>';
+            skipBtn.className = 'skip-btn';
+            skipBtn.addEventListener('click', () => Networking.submitVote(item.character.id, 'skip'));
+            controls.appendChild(skipBtn);
+        } else {
+            itemDiv.innerHTML = '<p>Vota por la mejor compra:</p>';
+            items.forEach(item => {
+                const btn = document.createElement('button');
+                btn.innerHTML = `<img src="${item.character.image}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:8px;">${item.playerName} — ${item.character.name} ($${item.character.price})`;
+                btn.addEventListener('click', () => Networking.submitVote(item.character.id, item.playerId));
                 controls.appendChild(btn);
             });
+            const skipBtn = document.createElement('button');
+            skipBtn.textContent = 'Saltar >>';
+            skipBtn.className = 'skip-btn';
+            skipBtn.addEventListener('click', () => Networking.submitVote(null, 'skip'));
+            controls.appendChild(skipBtn);
         }
     },
     
-    showVoteResults(results) {
-        const section = document.getElementById('voting-section');
+    showVoteResults(resultado, esFinal) {
+        const votingSection = document.getElementById('voting-section');
         const resultsDiv = document.getElementById('vote-results');
         
-        if (section) section.classList.add('hidden');
+        if (votingSection) votingSection.classList.add('hidden');
         if (resultsDiv) resultsDiv.classList.remove('hidden');
         
-        // Display results
         const list = document.getElementById('results-list');
-        if (list) {
-            list.innerHTML = '';
-            // Would populate with actual results
+        if (!list) return;
+        
+        if (!resultado) {
+            list.innerHTML = '<p>No hubo suficientes compras para votar.</p>';
+            return;
+        }
+        
+        if (resultado.promedio !== undefined) {
+            list.innerHTML = `
+                <div class="result-item ${esFinal ? 'winner' : ''}">
+                    <img src="${resultado.item.character.image}" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:6px;">
+                    <div>
+                        <strong>${esFinal ? '🏆 Mejor compra: ' : ''}${resultado.item.playerName} — ${resultado.item.character.name}</strong>
+                        <p>Promedio: ${resultado.promedio.toFixed(1)}/10 (${resultado.totalVotos} votos)</p>
+                    </div>
+                </div>
+            `;
+        } else if (resultado.ganador) {
+            list.innerHTML = `
+                <div class="result-item winner">
+                    <img src="${resultado.ganador.character.image}" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:6px;">
+                    <div>
+                        <strong>🏆 Mejor compra: ${resultado.ganador.playerName} — ${resultado.ganador.character.name}</strong>
+                        <p>${resultado.totalVotos} votos</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            list.innerHTML = '<p>Nadie votó.</p>';
         }
     }
 };
@@ -1935,6 +2124,9 @@ function setupEventListeners() {
     document.getElementById('btn-confirm-pool').addEventListener('click', handleConfirmPool);
     document.getElementById('btn-cancel-pool').addEventListener('click', () => {
         UI.showScreen('lobby');
+    });
+    document.getElementById('btn-propose-characters')?.addEventListener('click', () => {
+        UI.showScreen('selection');
     });
     
     // HUD bidding
@@ -2084,10 +2276,16 @@ async function handleStartGame() {
     ThreeJSRoom.initialize();
     
     // Update HUD with player info
-    document.getElementById('hud-name').textContent = GameState.playerName;
-    const player = GameState.players.get(GameState.peer.id);
-    if (player) {
-        document.getElementById('hud-money').textContent = `$${player.money}`;
+    if (GameState.isHost) {
+        document.getElementById('hud-name').textContent = GameState.playerName + ' (Presentador)';
+        document.querySelector('.bid-controls')?.classList.add('hidden');
+    } else {
+        document.getElementById('hud-name').textContent = GameState.playerName;
+        const player = GameState.players.get(GameState.peer.id);
+        if (player) {
+            document.getElementById('hud-money').textContent = `$${player.money}`;
+        }
+        UI.updateCollectionDisplay();
     }
     
     // Start first round
@@ -2103,6 +2301,19 @@ async function handleSearchAnime() {
 }
 
 function handleConfirmPool() {
+    if (!GameState.isHost && GameState.config.gameMode === 'choice') {
+        const conn = GameState.connections.get(GameState.hostId);
+        if (conn && conn.open) {
+            GameState.characterPool.forEach(personaje => {
+                conn.send({ tipo: 'PROPONER_PERSONAJE', personaje });
+            });
+        }
+        GameState.characterPool = [];
+        const poolEl = document.getElementById('character-pool');
+        const countEl = document.getElementById('pool-count');
+        if (poolEl) poolEl.innerHTML = '';
+        if (countEl) countEl.textContent = '0';
+    }
     UI.showScreen('lobby');
 }
 

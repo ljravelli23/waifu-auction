@@ -106,7 +106,7 @@
                         <option value="1">Neutral</option>
                         <option value="2">Seria</option>
                         <option value="3">Abierta</option>
-                        <option value="4">Grisa</option>
+                        <option value="4">Risa</option>
                     </select>
                 </div>
                 
@@ -116,11 +116,11 @@
                         <option value="0">Corto</option>
                         <option value="1">Medio</option>
                         <option value="2">Largo</option>
-                        <option value="3">Mochila</option>
+                        <option value="3">Coleta</option>
                         <option value="4">Punk</option>
                         <option value="5">Ondulado</option>
                         <option value="6">Calvo</option>
-                        <option value="7">Coleta</option>
+                        <option value="7">Moño</option>
                         <option value="8">Afro</option>
                         <option value="9">Rapado</option>
                     </select>
@@ -161,6 +161,9 @@
                 <h3>Jugadores conectados:</h3>
                 <ul id="players-list"></ul>
             </div>
+            
+            <button id="btn-propose-characters" class="btn-secondary hidden">Proponer personajes</button>
+            <p id="pool-progress" class="hidden">Personajes propuestos: <span id="pool-progress-count">0</span></p>
             
             <div id="host-controls" class="host-controls hidden">
                 <button id="btn-configure-game" class="btn-primary">Configurar Partida</button>
@@ -278,6 +281,7 @@
                     <div class="player-info">
                         <span id="hud-name">Jugador</span>
                         <span id="hud-money">$1000</span>
+                        <span id="hud-waifu-count">0 🎴</span>
                     </div>
                     <div class="round-info">
                         <span id="hud-round">Ronda 1/10</span>
@@ -297,6 +301,7 @@
                 </div>
                 
                 <div class="hud-bottom">
+                    <div id="hud-my-collection" class="hud-my-collection"></div>
                     <div class="bid-controls">
                         <button class="bid-btn" data-amount="1">+1</button>
                         <button class="bid-btn" data-amount="5">+5</button>

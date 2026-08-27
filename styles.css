@@ -490,6 +490,7 @@ button {
 
 .hud-bottom {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
     align-items: center;
     gap: 20px;
@@ -657,6 +658,34 @@ button {
 .result-item.winner {
     border: 2px solid #667eea;
     background: #e8f0fe;
+}
+
+/* Colección en vivo (HUD) y propuesta de personajes (lobby, modo Elección) */
+.hud-my-collection {
+    flex-basis: 100%;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    justify-content: center;
+    padding: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 8px;
+}
+
+.hud-collection-thumb {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+#pool-progress {
+    text-align: center;
+    color: #555;
+    font-size: 0.9em;
+    margin-bottom: 15px;
 }
 
 /* Responsive */
