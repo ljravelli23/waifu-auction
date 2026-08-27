@@ -1,4 +1,5 @@
 // ==================== GAME STATE ====================
+console.log('[Version] Game version: 3.0 - Cache fix applied');
 console.log('[Game] Initializing game state');
 window.gameInitialized = false; // Flag para tracking de inicialización
 const GameState = {
