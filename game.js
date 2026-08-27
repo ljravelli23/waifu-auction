@@ -1,5 +1,5 @@
 // ==================== GAME STATE ====================
-console.log('[Version] Game version: 3.0 - Cache fix applied');
+console.log('[Version] Game version: 4.0 - Auto-host player addition');
 console.log('[Game] Initializing game state');
 window.gameInitialized = false; // Flag para tracking de inicialización
 const GameState = {
@@ -40,7 +40,8 @@ const GameState = {
     bidTimer: null,
     roundPhase: 'waiting', // waiting, bidding, closed
     collections: new Map(), // playerId -> array of characters
-    isGameRunning: false
+    isGameRunning: false,
+    pendingAction: null // 'create-room' or 'join-room' to continue after avatar creation
 };
 
 // ==================== AVATAR SYSTEM ====================
@@ -669,6 +670,19 @@ const Networking = {
                     GameState.roomCode = id;
                     GameState.isHost = true;
                     GameState.hostId = id;
+
+                    // Add host as a player
+                    const hostPlayer = {
+                        id: id,
+                        nombre: GameState.playerName,
+                        avatar: GameState.avatar,
+                        money: GameState.config.initialMoney,
+                        collection: []
+                    };
+                    GameState.players.set(id, hostPlayer);
+                    console.log('[Networking] Host added as player:', hostPlayer.nombre);
+                    UI.updatePlayerList();
+
                     UI.showRoomCode(id);
                 });
                 
@@ -2503,6 +2517,7 @@ function handleCreateRoom() {
     // Check for avatar
     if (!AvatarSystem.loadAvatar()) {
         console.log('[Event] No avatar found, showing avatar creator');
+        GameState.pendingAction = 'create-room'; // Remember to continue after avatar
         UI.showScreen('avatar');
         AvatarSystem.init();
         AvatarSystem.drawAvatar(AvatarSystem.getAvatarFromForm());
@@ -2538,6 +2553,7 @@ function handleJoinRoom() {
     // Check for avatar
     if (!AvatarSystem.loadAvatar()) {
         console.log('[Event] No avatar found, showing avatar creator');
+        GameState.pendingAction = 'join-room'; // Remember to continue after avatar
         UI.showScreen('avatar');
         AvatarSystem.init();
         AvatarSystem.drawAvatar(AvatarSystem.getAvatarFromForm());
@@ -2567,8 +2583,24 @@ function handleEditAvatar() {
 }
 
 function handleSaveAvatar() {
+    console.log('[Event] handleSaveAvatar called');
     AvatarSystem.saveAvatar();
-    UI.showScreen('start');
+
+    // Check if there's a pending action to continue
+    if (GameState.pendingAction === 'create-room') {
+        console.log('[Event] Continuing with pending action: create-room');
+        GameState.pendingAction = null;
+        Networking.createRoom();
+        Networking.initializeVoiceChat();
+    } else if (GameState.pendingAction === 'join-room') {
+        console.log('[Event] Continuing with pending action: join-room');
+        GameState.pendingAction = null;
+        Networking.joinRoom(GameState.roomCode);
+        Networking.initializeVoiceChat();
+    } else {
+        console.log('[Event] No pending action, returning to start');
+        UI.showScreen('start');
+    }
 }
 
 function handleConfigureGame() {
